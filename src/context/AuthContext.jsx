@@ -1,5 +1,11 @@
 import { createContext, useState, useEffect } from 'react';
-import { login as loginService, register as registerService, googleLogin as googleLoginService } from '@/services/authService';
+import { 
+  login as loginService, 
+  register as registerService, 
+  googleLogin as googleLoginService,
+  requestEmailOtp as requestEmailOtpService,
+  verifyEmailOtp as verifyEmailOtpService
+} from '@/services/authService';
 
 export const AuthContext = createContext(null);
 
@@ -86,13 +92,45 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const requestOtp = async (email) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await requestEmailOtpService(email);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to send OTP');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyOtp = async (email, otp) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await verifyEmailOtpService(email, otp);
+      const userData = response.data.user;
+      
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      return userData;
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Invalid OTP');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, loginWithGoogle, logout, loading, error }}>
+    <AuthContext.Provider value={{ user, login, register, loginWithGoogle, requestOtp, verifyOtp, logout, loading, error }}>
       {children}
     </AuthContext.Provider>
   );

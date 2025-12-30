@@ -11,22 +11,41 @@ import { Label } from '@/components/ui/Label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { ROUTES } from '@/constants/routes';
 
-const loginSchema = z.object({
+const emailSchema = z.object({
   email: z.string().email({ message: "Invalid email address" }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+});
+
+const otpSchema = z.object({
+  otp: z.string().length(6, { message: "OTP must be 6 digits" }),
 });
 
 const Login = () => {
-  const { login, loginWithGoogle, error: authError, loading } = useAuth();
+  const { requestOtp, verifyOtp, loginWithGoogle, error: authError, loading } = useAuth();
   const navigate = useNavigate();
+  const [step, setStep] = useState('email'); // 'email' or 'otp'
+  const [email, setEmail] = useState('');
   
-  const { register, handleSubmit, formState: { errors } } = useForm({
-    resolver: zodResolver(loginSchema),
+  const { register: registerEmail, handleSubmit: handleSubmitEmail, formState: { errors: emailErrors } } = useForm({
+    resolver: zodResolver(emailSchema),
   });
 
-  const onSubmit = async (data) => {
+  const { register: registerOtp, handleSubmit: handleSubmitOtp, formState: { errors: otpErrors } } = useForm({
+    resolver: zodResolver(otpSchema),
+  });
+
+  const onEmailSubmit = async (data) => {
     try {
-      await login(data);
+      await requestOtp(data.email);
+      setEmail(data.email);
+      setStep('otp');
+    } catch (err) {
+      // Error is handled in context
+    }
+  };
+
+  const onOtpSubmit = async (data) => {
+    try {
+      await verifyOtp(email, data.otp);
       navigate(ROUTES.HOME);
     } catch (err) {
       // Error is handled in context
@@ -50,59 +69,83 @@ const Login = () => {
     <div className="flex items-center justify-center min-h-[60vh]">
       <Card className="w-[350px]">
         <CardHeader>
-          <CardTitle>Login</CardTitle>
-          <CardDescription>Enter your credentials to access your account.</CardDescription>
+          <CardTitle>{step === 'email' ? 'Login / Register' : 'Verify OTP'}</CardTitle>
+          <CardDescription>
+            {step === 'email' 
+              ? 'Enter your email to continue.' 
+              : `Enter the code sent to ${email}`
+            }
+          </CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="m@example.com" 
-                {...register("email")}
-              />
-              {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input 
-                id="password" 
-                type="password" 
-                {...register("password")}
-              />
-              {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
-            </div>
-            {authError && <p className="text-sm text-red-500">{authError}</p>}
-            
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
+        
+        {step === 'email' ? (
+          <form onSubmit={handleSubmitEmail(onEmailSubmit)}>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input 
+                  id="email" 
+                  type="email" 
+                  placeholder="m@example.com" 
+                  {...registerEmail("email")}
+                />
+                {emailErrors.email && <p className="text-sm text-red-500">{emailErrors.email.message}</p>}
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Or continue with
-                </span>
+              {authError && <p className="text-sm text-red-500">{authError}</p>}
+              
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Or continue with
+                  </span>
+                </div>
               </div>
-            </div>
 
-            <div className="flex justify-center">
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={handleGoogleError}
-                useOneTap
-              />
-            </div>
-
-          </CardContent>
-          <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" isLoading={loading}>Login</Button>
-            <p className="text-sm text-center text-gray-500">
-              Don't have an account? <Link to={ROUTES.REGISTER} className="text-primary hover:underline">Sign up</Link>
-            </p>
-          </CardFooter>
-        </form>
+              <div className="flex justify-center">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  useOneTap
+                />
+              </div>
+            </CardContent>
+            <CardFooter className="flex flex-col gap-4">
+              <Button type="submit" className="w-full" isLoading={loading}>Continue with Email</Button>
+            </CardFooter>
+          </form>
+        ) : (
+          <form onSubmit={handleSubmitOtp(onOtpSubmit)}>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="otp">One-Time Password</Label>
+                <Input 
+                  id="otp" 
+                  type="text" 
+                  placeholder="123456" 
+                  maxLength={6}
+                  {...registerOtp("otp")}
+                />
+                {otpErrors.otp && <p className="text-sm text-red-500">{otpErrors.otp.message}</p>}
+              </div>
+              {authError && <p className="text-sm text-red-500">{authError}</p>}
+            </CardContent>
+            <CardFooter className="flex flex-col gap-4">
+              <Button type="submit" className="w-full" isLoading={loading}>Verify & Login</Button>
+              <Button 
+                type="button" 
+                variant="ghost" 
+                className="w-full" 
+                onClick={() => setStep('email')}
+                disabled={loading}
+              >
+                Back to Email
+              </Button>
+            </CardFooter>
+          </form>
+        )}
       </Card>
     </div>
   );
