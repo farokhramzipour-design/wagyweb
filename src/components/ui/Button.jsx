@@ -1,7 +1,8 @@
 import React from 'react';
 import { cn } from '@/utils/cn';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
 
-const Button = React.forwardRef(({ className, variant = 'primary', size = 'md', ...props }, ref) => {
+const Button = React.forwardRef(({ className, variant = 'primary', size = 'md', isLoading, children, ...props }, ref) => {
   const variants = {
     primary: 'bg-primary text-white hover:bg-primary/90',
     secondary: 'bg-secondary text-white hover:bg-secondary/90',
@@ -24,8 +25,12 @@ const Button = React.forwardRef(({ className, variant = 'primary', size = 'md', 
         className
       )}
       ref={ref}
+      disabled={isLoading || props.disabled}
       {...props}
-    />
+    >
+      {isLoading && <LoadingSpinner className="mr-2 h-4 w-4" />}
+      {children}
+    </button>
   );
 });
 

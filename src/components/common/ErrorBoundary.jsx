@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from '@/components/ui/Button';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -17,9 +18,9 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="error-boundary">
-          <h1>Something went wrong.</h1>
-          <button onClick={() => window.location.reload()}>Reload Page</button>
+        <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+          <h1 className="text-2xl font-bold">Something went wrong.</h1>
+          <Button onClick={() => window.location.reload()}>Reload Page</Button>
         </div>
       );
     }
