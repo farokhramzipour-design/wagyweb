@@ -81,3 +81,85 @@ If you already have a web server set up:
 2. Copy the contents of the `dist` folder to your server's web root (e.g., `/var/www/html`).
 3. Ensure your server is configured to handle Single Page Application (SPA) routing (redirecting all 404s to `index.html`).
    - *See the provided `nginx.conf` for an example Nginx configuration.*
+
+---
+
+## Troubleshooting
+
+### Error: "AppArmor enabled on system but the docker-default profile could not be loaded"
+If you see this error during the build process, it means your Linux server has AppArmor enabled but is missing the necessary parser utilities.
+
+**Fix for Ubuntu/Debian:**
+```bash
+sudo apt-get update
+sudo apt-get install -y apparmor-utils
+sudo service docker restart
+```
+
+**Fix for CentOS/RHEL:**
+```bash
+sudo yum install -y apparmor-utils
+sudo systemctl restart docker
+```
+
+---
+
+## Domain & SSL Setup (Certbot)
+
+To assign a domain and get a free SSL certificate, we recommend using Nginx on the host machine as a reverse proxy to your Docker container.
+
+### 1. Run Docker Container on a Specific Port
+First, ensure your Docker container is running and mapped to a local port (e.g., 8080) instead of port 80 directly.
+
+```bash
+docker run -d -p 8080:80 --restart always --name wagy-app wagyweb
+```
+*Or update `docker-compose.yml` to use `"8080:80"`.*
+
+### 2. Install Nginx & Certbot on Host
+Run these commands on your server (Ubuntu/Debian):
+
+```bash
+sudo apt update
+sudo apt install nginx certbot python3-certbot-nginx
+```
+
+### 3. Configure Nginx Reverse Proxy
+Create a new configuration file:
+```bash
+sudo nano /etc/nginx/sites-available/wagyweb
+```
+
+Paste the following content (replace `yourdomain.com` with your actual domain):
+
+```nginx
+server {
+    listen 80;
+    server_name yourdomain.com www.yourdomain.com;
+
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+Enable the site and restart Nginx:
+```bash
+sudo ln -s /etc/nginx/sites-available/wagyweb /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+### 4. Obtain SSL Certificate
+Run Certbot to automatically configure SSL:
+
+```bash
+sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
+```
+
+Follow the prompts. Certbot will automatically update your Nginx configuration to serve HTTPS.

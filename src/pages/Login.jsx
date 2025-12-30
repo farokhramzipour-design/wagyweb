@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -16,7 +17,7 @@ const loginSchema = z.object({
 });
 
 const Login = () => {
-  const { login, error: authError, loading } = useAuth();
+  const { login, loginWithGoogle, error: authError, loading } = useAuth();
   const navigate = useNavigate();
   
   const { register, handleSubmit, formState: { errors } } = useForm({
@@ -30,6 +31,19 @@ const Login = () => {
     } catch (err) {
       // Error is handled in context
     }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      await loginWithGoogle(credentialResponse);
+      navigate(ROUTES.HOME);
+    } catch (err) {
+      // Error is handled in context
+    }
+  };
+
+  const handleGoogleError = () => {
+    console.log('Google Login Failed');
   };
 
   return (
@@ -61,6 +75,26 @@ const Login = () => {
               {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
             </div>
             {authError && <p className="text-sm text-red-500">{authError}</p>}
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-center">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+                useOneTap
+              />
+            </div>
+
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button type="submit" className="w-full" isLoading={loading}>Login</Button>

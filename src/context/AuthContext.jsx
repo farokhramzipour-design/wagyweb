@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect } from 'react';
-import { login as loginService, register as registerService } from '@/services/authService';
+import { login as loginService, register as registerService, googleLogin as googleLoginService } from '@/services/authService';
 
 export const AuthContext = createContext(null);
 
@@ -61,13 +61,38 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const loginWithGoogle = async (credentialResponse) => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Call the backend with the Google ID token
+      const response = await googleLoginService(credentialResponse.credential);
+      
+      // The backend should return the user data and tokens
+      const userData = response.data.user;
+      
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
+      // You might also want to store the access token here
+      // localStorage.setItem('token', response.data.tokens.access_token);
+      
+      return userData;
+    } catch (err) {
+      console.error("Google Login Error:", err);
+      setError(err.response?.data?.detail || 'Google login failed');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading, error }}>
+    <AuthContext.Provider value={{ user, login, register, loginWithGoogle, logout, loading, error }}>
       {children}
     </AuthContext.Provider>
   );
