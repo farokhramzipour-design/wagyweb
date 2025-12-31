@@ -66,33 +66,17 @@ const homeSchema = z.object({
   crate_available: z.boolean(),
   cameras_in_home: z.boolean(),
   own_pets_details: z.object({
-    number_of_pets: z.coerce.number(),
-    pet_types: z.array(z.string()),
-    pet_details_text: z.string()
+    number_of_pets: z.coerce.number().min(1, 'Please provide the number of pets.'),
+    pet_types: z.array(z.string()).min(1, 'Please select the type(s) of your pet(s).'),
+    pet_details_text: z.string().min(10, 'Please describe your pet(s) in at least 10 characters.')
   }).optional(),
 }).superRefine((data, ctx) => {
-  if (data.pets_in_home) {
-    if (!data.own_pets_details?.number_of_pets || data.own_pets_details.number_of_pets < 1) {
-      ctx.addIssue({
-        path: ['own_pets_details.number_of_pets'],
-        message: 'Please provide the number of pets.',
-        code: 'custom'
-      });
-    }
-    if (!data.own_pets_details?.pet_types || data.own_pets_details.pet_types.length === 0) {
-      ctx.addIssue({
-        path: ['own_pets_details.pet_types'],
-        message: 'Please select the type(s) of your pet(s).',
-        code: 'custom'
-      });
-    }
-    if (!data.own_pets_details?.pet_details_text || data.own_pets_details.pet_details_text.length < 10) {
-      ctx.addIssue({
-        path: ['own_pets_details.pet_details_text'],
-        message: 'Please describe your pet(s) in at least 10 characters.',
-        code: 'custom'
-      });
-    }
+  if (data.pets_in_home && !data.own_pets_details) {
+    ctx.addIssue({
+      path: ['own_pets_details.number_of_pets'],
+      message: 'Please provide details about your pets.',
+      code: 'custom'
+    });
   }
 });
 
@@ -367,7 +351,11 @@ const HomeStep = ({ defaultValues, onNext, onBack }) => {
     resolver: zodResolver(homeSchema),
     defaultValues: {
       ...defaultValues,
-      own_pets_details: defaultValues?.own_pets_details || undefined
+      own_pets_details: defaultValues?.own_pets_details || {
+        number_of_pets: 0,
+        pet_types: [],
+        pet_details_text: ''
+      }
     }
   });
 
