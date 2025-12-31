@@ -78,12 +78,11 @@ export const AuthProvider = ({ children }) => {
       const response = await googleLoginService(credentialResponse.credential);
       
       // The backend should return the user data and tokens
-      const userData = response.data.user;
+      const { user: userData, tokens } = response.data;
       
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
-      // You might also want to store the access token here
-      // localStorage.setItem('token', response.data.tokens.access_token);
+      localStorage.setItem('token', tokens.access_token);
       
       return userData;
     } catch (err) {
@@ -123,10 +122,11 @@ export const AuthProvider = ({ children }) => {
         response = await verifyMobileOtpService(identifier, otp);
       }
 
-      const userData = response.data.user;
+      const { user: userData, tokens } = response.data;
       
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('token', tokens.access_token);
       
       return userData;
     } catch (err) {
@@ -146,6 +146,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setUser(null);
       localStorage.removeItem('user');
+      localStorage.removeItem('token');
     }
   };
 

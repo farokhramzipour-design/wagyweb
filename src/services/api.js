@@ -10,11 +10,18 @@ const api = axios.create({
 // Add request interceptor
 api.interceptors.request.use(
   (config) => {
-    // You can add auth tokens here
-    // const token = localStorage.getItem('token');
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`;
-    // }
+    // Add auth token if available
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      // Assuming the token is stored in the user object or separately
+      // Adjust this based on your actual response structure
+      // If token is not in user object, you might need to store it separately in localStorage
+      const token = localStorage.getItem('token'); 
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
     return config;
   },
   (error) => {
@@ -29,6 +36,12 @@ api.interceptors.response.use(
   },
   (error) => {
     // Handle global errors here (e.g., 401 Unauthorized)
+    if (error.response && error.response.status === 401) {
+      // Optional: Redirect to login or clear storage
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
     return Promise.reject(error);
   }
 );
