@@ -4,7 +4,7 @@ import api from './api';
 export const loginWithEmail = (email) => api.post('/auth/email/login', { email });
 export const verifyEmailOtp = (email, otp) => api.post('/auth/email/verify', { email, otp });
 
-// --- Sitter Profile Onboarding (Step-by-Step) ---
+// --- Sitter Profile Onboarding ---
 
 /**
  * Fetches the current sitter's profile to resume onboarding.
@@ -12,67 +12,67 @@ export const verifyEmailOtp = (email, otp) => api.post('/auth/email/verify', { e
 export const getSitterProfile = () => api.get('/sitters/me');
 
 /**
- * Step 2: Updates personal information. Handles profile photo upload.
+ * Uploads the user's profile photo.
+ * @param {File} file The image file to upload.
+ * @returns {Promise<Object>} The response containing the photo URL.
  */
-export const updatePersonalInfo = (data) => {
-  // The API expects a multipart form if a photo is included.
+export const uploadProfilePhoto = (file) => {
   const formData = new FormData();
-  Object.keys(data).forEach(key => {
-    if (data[key]) {
-      formData.append(key, data[key]);
-    }
-  });
-  return api.patch('/sitters/personal-info', formData, {
+  formData.append('file', file);
+  return api.post('/sitters/upload-profile-photo', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 };
 
 /**
- * Step 3: Updates location and availability.
+ * Step 1: Updates personal information.
+ * Assumes photo has been uploaded and its URL is included in the data.
+ */
+export const updatePersonalInfo = (data) => {
+  return api.patch('/sitters/personal-info', data);
+};
+
+/**
+ * Updates location and availability.
  */
 export const updateLocation = (data) => api.patch('/sitters/location', data);
 
 /**
- * Step 5 (Dynamic): Updates boarding service configuration.
+ * Updates boarding service configuration.
  */
 export const updateBoardingService = (data) => api.patch('/sitters/services/boarding', data);
 
 /**
- * Step 5 (Dynamic): Updates walking service configuration.
+ * Updates walking service configuration.
  */
 export const updateWalkingService = (data) => api.patch('/sitters/services/walking', data);
 
 /**
- * Step 6: Updates experience and skills.
+ * Updates experience and skills.
  */
 export const updateExperience = (data) => api.patch('/sitters/experience', data);
 
 /**
- * Step 7: Updates home environment details.
+ * Updates home environment details.
  */
 export const updateHome = (data) => api.patch('/sitters/home', data);
 
 /**
- * Step 9: Updates profile content like headline and bio.
+ * Updates profile content like headline and bio.
  */
 export const updateContent = (data) => api.patch('/sitters/content', data);
 
 /**
- * Step 10: Updates pricing and payout information.
+ * Updates pricing and payout information.
  */
 export const updatePricing = (data) => api.patch('/sitters/pricing', data);
 
 /**
- * Step 11: Submits the completed profile for review.
- * NOTE: This endpoint is assumed from the UX flow. If not present in the backend,
- * this will fail. The backend might trigger this automatically on the last pricing update.
+ * Submits the completed profile for review.
  */
 export const submitForReview = () => api.post('/sitters/submit-review');
 
-// --- Verification (Placeholder based on UX doc) ---
-// The OpenAPI spec provided does not include these endpoints.
-// These are placeholders and will fail if not implemented in the backend.
-
+// --- Verification (Placeholder) ---
 export const submitIdentityVerification = (formData) => {
   return api.post('/verification/id', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },

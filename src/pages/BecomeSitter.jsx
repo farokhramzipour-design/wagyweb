@@ -1,10 +1,18 @@
 import { useState, useEffect } from 'react';
 import * as SitterService from '@/services/sitterService';
+import PersonalInfoForm from '@/components/sitter/PersonalInfoForm';
+
+const STEPS = {
+  PERSONAL_INFO: 1,
+  LOCATION: 2,
+  // ... other steps
+};
 
 const BecomeSitter = () => {
   const [sitterProfile, setSitterProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentStep, setCurrentStep] = useState(STEPS.PERSONAL_INFO);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -12,31 +20,41 @@ const BecomeSitter = () => {
         setLoading(true);
         const { data } = await SitterService.getSitterProfile();
         setSitterProfile(data);
-        console.log('Sitter Profile:', data);
       } catch (err) {
-        setError(err);
-        console.error("Failed to fetch sitter profile:", err);
+        // It's okay if the profile doesn't exist yet
+        console.log("No existing sitter profile found. Starting fresh.");
       } finally {
         setLoading(false);
       }
     };
 
     fetchProfile();
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, []);
+
+  const handlePersonalInfoSave = (updatedData) => {
+    setSitterProfile(prev => ({ ...prev, ...updatedData }));
+    // setCurrentStep(STEPS.LOCATION); // <-- We'll enable this later
+    console.log("Personal Info Saved!", updatedData);
+    alert("Step 1 complete! Check the console. Next step is not yet implemented.");
+  };
 
   if (loading) {
     return <div>Loading profile...</div>;
   }
 
-  if (error) {
-    return <div>Error loading profile. Please try again later.</div>;
-  }
-
   return (
-    <div>
-      <h1>Become a Sitter</h1>
-      <p>Your profile data is loaded. Check the console.</p>
-      <pre>{JSON.stringify(sitterProfile, null, 2)}</pre>
+    <div className="container mx-auto py-10 max-w-2xl">
+      <h1 className="text-3xl font-bold mb-6">Become a Sitter</h1>
+      
+      {currentStep === STEPS.PERSONAL_INFO && (
+        <PersonalInfoForm 
+          profileData={sitterProfile} 
+          onSave={handlePersonalInfoSave} 
+        />
+      )}
+
+      {/* Other steps will go here */}
+      {/* {currentStep === STEPS.LOCATION && <LocationForm />} */}
     </div>
   );
 };
