@@ -28,7 +28,7 @@ function App() {
               </ProtectedRoute>
             } 
           />
-          <Route path={ROUTES.NOT_FOUND} element={<NotFound />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
     </Router>

@@ -21,9 +21,6 @@ const Header = () => {
         <div className="flex items-center gap-4">
           {user ? (
             <>
-              <Link to="/become-sitter">
-                <Button variant="outline" size="sm">Become a Sitter</Button>
-              </Link>
               <span className="text-sm font-medium">Hello, {user.full_name || user.name || 'User'}</span>
               <Button variant="ghost" size="sm" onClick={logout}>Log Out</Button>
             </>
