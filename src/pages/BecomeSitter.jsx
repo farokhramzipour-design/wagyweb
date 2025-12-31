@@ -55,6 +55,18 @@ const experienceSchema = z.object({
   first_aid_certified: z.boolean(),
 });
 
+const servicesSchema = z.object({
+  boarding: z.boolean(),
+  house_sitting: z.boolean(),
+  drop_in_visits: z.boolean(),
+  walking: z.boolean(),
+  doggy_day_care: z.boolean(),
+  dog_training: z.boolean(),
+}).refine(data => Object.values(data).some(v => v), {
+  message: "Please select at least one service.",
+  path: ["boarding"],
+});
+
 const homeSchema = z.object({
   home_type: z.enum(["house", "apartment", "condo", "farm"]),
   home_ownership: z.enum(["own", "rent"]),
@@ -219,16 +231,19 @@ const LocationStep = ({ defaultValues, onNext, onBack }) => {
   );
 };
 
-const ServicesStep = ({ onNext, onBack }) => {
-  const [selectedServices, setSelectedServices] = useState({});
+const ServicesStep = ({ defaultValues, onNext, onBack }) => {
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(servicesSchema),
+    defaultValues,
+  });
 
-  const handleServiceToggle = (service) => {
-    setSelectedServices(prev => ({ ...prev, [service]: !prev[service] }));
-  };
-
-  const handleContinue = () => {
-    const activeServices = Object.keys(selectedServices).filter(key => selectedServices[key]);
-    onNext(activeServices);
+  const serviceList = {
+    boarding: 'Boarding',
+    house_sitting: 'House Sitting',
+    drop_in_visits: 'Drop-In Visits',
+    walking: 'Dog Walking',
+    doggy_day_care: 'Doggy Day Care',
+    dog_training: 'Dog Training',
   };
 
   return (
@@ -237,18 +252,25 @@ const ServicesStep = ({ onNext, onBack }) => {
         <CardTitle>Choose Your Services</CardTitle>
         <CardDescription>Select the services you want to offer.</CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-4 md:grid-cols-2">
-        {['Boarding', 'House Sitting', 'Drop-In Visits', 'Dog Walking', 'Doggy Day Care', 'Dog Training'].map((service) => (
-          <div key={service} className={`flex items-center space-x-2 border p-4 rounded-lg cursor-pointer transition-colors ${selectedServices[service] ? 'bg-primary/10 border-primary' : 'hover:bg-gray-50'}`} onClick={() => handleServiceToggle(service)}>
-            <input type="checkbox" id={service} checked={!!selectedServices[service]} onChange={() => {}} className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary pointer-events-none" />
-            <label htmlFor={service} className="text-sm font-medium leading-none cursor-pointer pointer-events-none">{service}</label>
-          </div>
-        ))}
-      </CardContent>
-      <CardFooter className="flex gap-4">
-        <Button type="button" variant="ghost" onClick={onBack} className="w-full">Back</Button>
-        <Button onClick={handleContinue} className="w-full">Continue</Button>
-      </CardFooter>
+      <form onSubmit={handleSubmit(onNext)}>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          {Object.entries(serviceList).map(([key, name]) => (
+            <label key={key} className="flex items-center space-x-2 border p-4 rounded-lg cursor-pointer hover:bg-gray-50">
+              <input
+                type="checkbox"
+                {...register(key)}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <span className="text-sm font-medium leading-none">{name}</span>
+            </label>
+          ))}
+          {errors.boarding && <p className="text-sm text-red-500 md:col-span-2">{errors.boarding.message}</p>}
+        </CardContent>
+        <CardFooter className="flex gap-4">
+          <Button type="button" variant="ghost" onClick={onBack} className="w-full">Back</Button>
+          <Button type="submit" className="w-full" isLoading={isSubmitting}>Save & Continue</Button>
+        </CardFooter>
+      </form>
     </Card>
   );
 };
@@ -646,10 +668,46 @@ const BecomeSitter = () => {
     }
   };
 
-  const handleServicesSubmit = async (selectedServices) => {
-    // Mock saving services
-    // In a real app, you'd iterate and call updateBoardingService, etc.
-    setStep(4);
+  const handleServicesSubmit = async (data) => {
+    try {
+      const promises = [];
+      const { boarding, walking } = data;
+
+      // Call APIs for services that have them.
+      // We assume PATCH allows updating only the 'active' field.
+      if (boarding !== (profile?.services?.boarding?.active || false)) {
+        promises.push(updateBoardingService({ active: boarding }));
+      }
+      if (walking !== (profile?.services?.walking?.active || false)) {
+        promises.push(updateWalkingService({ active: walking }));
+      }
+
+      // Other services like 'house_sitting' are in the form but have no API calls yet.
+      // They will be saved in the local profile state.
+
+      await Promise.all(promises);
+
+      // Update profile state
+      const newServices = {
+        ...profile?.services,
+        boarding: { ...profile?.services?.boarding, active: data.boarding },
+        walking: { ...profile?.services?.walking, active: data.walking },
+        house_sitting: { ...profile?.services?.house_sitting, active: data.house_sitting },
+        drop_in_visits: { ...profile?.services?.drop_in_visits, active: data.drop_in_visits },
+        doggy_day_care: { ...profile?.services?.doggy_day_care, active: data.doggy_day_care },
+        dog_training: { ...profile?.services?.dog_training, active: data.dog_training },
+      };
+
+      setProfile(prev => ({
+        ...prev,
+        services: newServices,
+      }));
+
+      setStep(4);
+    } catch (error) {
+      console.error("Error updating services:", error);
+      // Optionally, show an error to the user
+    }
   };
 
   const handleExperienceSubmit = async (data) => {
@@ -737,6 +795,14 @@ const BecomeSitter = () => {
 
       {step === 3 && (
         <ServicesStep
+          defaultValues={{
+            boarding: profile?.services?.boarding?.active || false,
+            house_sitting: profile?.services?.house_sitting?.active || false,
+            drop_in_visits: profile?.services?.drop_in_visits?.active || false,
+            walking: profile?.services?.walking?.active || false,
+            doggy_day_care: profile?.services?.doggy_day_care?.active || false,
+            dog_training: profile?.services?.dog_training?.active || false,
+          }}
           onNext={handleServicesSubmit}
           onBack={() => setStep(2)}
         />
