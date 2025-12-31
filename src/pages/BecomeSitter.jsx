@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
@@ -65,6 +65,35 @@ const homeSchema = z.object({
   smoking_home: z.boolean(),
   crate_available: z.boolean(),
   cameras_in_home: z.boolean(),
+  own_pets_details: z.object({
+    number_of_pets: z.coerce.number(),
+    pet_types: z.array(z.string()),
+    pet_details_text: z.string()
+  }).optional(),
+}).superRefine((data, ctx) => {
+  if (data.pets_in_home) {
+    if (!data.own_pets_details?.number_of_pets || data.own_pets_details.number_of_pets < 1) {
+      ctx.addIssue({
+        path: ['own_pets_details.number_of_pets'],
+        message: 'Please provide the number of pets.',
+        code: 'custom'
+      });
+    }
+    if (!data.own_pets_details?.pet_types || data.own_pets_details.pet_types.length === 0) {
+      ctx.addIssue({
+        path: ['own_pets_details.pet_types'],
+        message: 'Please select the type(s) of your pet(s).',
+        code: 'custom'
+      });
+    }
+    if (!data.own_pets_details?.pet_details_text || data.own_pets_details.pet_details_text.length < 10) {
+      ctx.addIssue({
+        path: ['own_pets_details.pet_details_text'],
+        message: 'Please describe your pet(s) in at least 10 characters.',
+        code: 'custom'
+      });
+    }
+  }
 });
 
 const contentSchema = z.object({
@@ -334,13 +363,22 @@ const ExperienceStep = ({ defaultValues, onNext, onBack }) => {
 };
 
 const HomeStep = ({ defaultValues, onNext, onBack }) => {
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(homeSchema),
     defaultValues: {
       ...defaultValues,
-      own_pets_details: {}
+      own_pets_details: defaultValues?.own_pets_details || undefined
     }
   });
+
+  const petsInHome = useWatch({ control, name: "pets_in_home" });
+
+  const onSubmit = (data) => {
+    if (!data.pets_in_home) {
+      delete data.own_pets_details;
+    }
+    onNext(data);
+  };
 
   return (
     <Card>
@@ -348,7 +386,7 @@ const HomeStep = ({ defaultValues, onNext, onBack }) => {
         <CardTitle>Home Environment</CardTitle>
         <CardDescription>Describe where the pets will be staying.</CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit(onNext)}>
+      <form onSubmit={handleSubmit(onSubmit)}>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -405,6 +443,39 @@ const HomeStep = ({ defaultValues, onNext, onBack }) => {
               <span>Cameras in Home</span>
             </label>
           </div>
+
+          {petsInHome && (
+            <div className="space-y-4 border-t pt-4 mt-4">
+              <h3 className="text-md font-medium text-gray-800">About Your Pet(s)</h3>
+              <div className="space-y-2">
+                <Label htmlFor="own_pets_details.number_of_pets">Number of Pets</Label>
+                <Input id="own_pets_details.number_of_pets" type="number" {...register("own_pets_details.number_of_pets")} placeholder="e.g., 2" />
+                {errors.own_pets_details?.number_of_pets && <p className="text-sm text-red-500">{errors.own_pets_details.number_of_pets.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label>Pet Types</Label>
+                <div className="flex flex-wrap gap-4">
+                  {['Dog', 'Cat', 'Bird', 'Reptile', 'Other'].map(type => (
+                    <label key={type} className="flex items-center space-x-2">
+                      <input type="checkbox" value={type} {...register("own_pets_details.pet_types")} className="rounded border-gray-300" />
+                      <span>{type}</span>
+                    </label>
+                  ))}
+                </div>
+                {errors.own_pets_details?.pet_types && <p className="text-sm text-red-500">{errors.own_pets_details.pet_types.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="own_pets_details.pet_details_text">Description</Label>
+                <textarea
+                  id="own_pets_details.pet_details_text"
+                  {...register("own_pets_details.pet_details_text")}
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  placeholder="e.g., A friendly Golden Retriever, 5 years old, and a shy domestic shorthair cat."
+                />
+                {errors.own_pets_details?.pet_details_text && <p className="text-sm text-red-500">{errors.own_pets_details.pet_details_text.message}</p>}
+              </div>
+            </div>
+          )}
         </CardContent>
         <CardFooter className="flex gap-4">
           <Button type="button" variant="ghost" onClick={onBack} className="w-full">Back</Button>
@@ -414,6 +485,7 @@ const HomeStep = ({ defaultValues, onNext, onBack }) => {
     </Card>
   );
 };
+
 
 const ContentStep = ({ defaultValues, onNext, onBack }) => {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
@@ -707,6 +779,7 @@ const BecomeSitter = () => {
             fenced_yard: profile?.fenced_yard || false,
             yard_size: profile?.yard_size || 'none',
             pets_in_home: profile?.pets_in_home || false,
+            own_pets_details: profile?.own_pets_details,
             children_in_home: profile?.children_in_home || false,
             smoking_home: profile?.smoking_home || false,
             crate_available: profile?.crate_available || false,
