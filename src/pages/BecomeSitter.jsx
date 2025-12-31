@@ -18,7 +18,8 @@ import {
   updateExperience,
   updateHome,
   updateContent,
-  updatePricing
+  updatePricing,
+  submitForReview
 } from '@/services/sitterService';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -77,19 +78,7 @@ const homeSchema = z.object({
   smoking_home: z.boolean(),
   crate_available: z.boolean(),
   cameras_in_home: z.boolean(),
-  own_pets_details: z.object({
-    number_of_pets: z.coerce.number().min(1, 'Please provide the number of pets.'),
-    pet_types: z.array(z.string()).min(1, 'Please select the type(s) of your pet(s).'),
-    pet_details_text: z.string().min(10, 'Please describe your pet(s) in at least 10 characters.')
-  }).optional(),
-}).superRefine((data, ctx) => {
-  if (data.pets_in_home && !data.own_pets_details) {
-    ctx.addIssue({
-      path: ['own_pets_details.number_of_pets'],
-      message: 'Please provide details about your pets.',
-      code: 'custom'
-    });
-  }
+  own_pets_details: z.record(z.any()).optional(),
 });
 
 const contentSchema = z.object({
@@ -384,10 +373,15 @@ const HomeStep = ({ defaultValues, onNext, onBack }) => {
   const petsInHome = useWatch({ control, name: "pets_in_home" });
 
   const onSubmit = (data) => {
-    if (!data.pets_in_home) {
-      delete data.own_pets_details;
+    const payload = { ...data };
+    if (payload.pets_in_home) {
+      // Ensure own_pets_details is an object, even if the user didn't fill it out.
+      // The backend expects an object if pets_in_home is true.
+      payload.own_pets_details = data.own_pets_details || {};
+    } else {
+      delete payload.own_pets_details;
     }
-    onNext(data);
+    onNext(payload);
   };
 
   return (
@@ -673,8 +667,6 @@ const BecomeSitter = () => {
       const promises = [];
       const { boarding, walking } = data;
 
-      // Call APIs for services that have them.
-      // We assume PATCH allows updating only the 'active' field.
       if (boarding !== (profile?.services?.boarding?.active || false)) {
         promises.push(updateBoardingService({ active: boarding }));
       }
@@ -682,12 +674,8 @@ const BecomeSitter = () => {
         promises.push(updateWalkingService({ active: walking }));
       }
 
-      // Other services like 'house_sitting' are in the form but have no API calls yet.
-      // They will be saved in the local profile state.
-
       await Promise.all(promises);
 
-      // Update profile state
       const newServices = {
         ...profile?.services,
         boarding: { ...profile?.services?.boarding, active: data.boarding },
@@ -706,7 +694,6 @@ const BecomeSitter = () => {
       setStep(4);
     } catch (error) {
       console.error("Error updating services:", error);
-      // Optionally, show an error to the user
     }
   };
 
@@ -743,10 +730,11 @@ const BecomeSitter = () => {
   const handlePricingSubmit = async (data) => {
     try {
       await updatePricing(data);
-      setProfile(prev => ({ ...prev, ...data }));
+      await submitForReview();
+      setProfile(prev => ({ ...prev, ...data, application_status: 'pending' }));
       setStep(8);
     } catch (error) {
-      console.error("Error updating pricing:", error);
+      console.error("Error submitting application:", error);
     }
   };
 

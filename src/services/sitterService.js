@@ -44,3 +44,8 @@ export const updatePricing = async (data) => {
   const response = await api.patch('/sitters/pricing', data);
   return response.data;
 };
+
+export const submitForReview = async () => {
+  const response = await api.post('/sitters/submit-review');
+  return response.data;
+};
