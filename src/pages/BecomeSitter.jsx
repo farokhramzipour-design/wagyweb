@@ -269,12 +269,24 @@ const BecomeSitter = () => {
     try {
       await SitterService.updatePersonalInfo(data.personal_info);
       await SitterService.updateLocation(data.location);
-      if (data.services.boarding) await SitterService.updateBoardingService({ active: true, ... });
-      if (data.services.walking) await SitterService.updateWalkingService({ active: true, ... });
+      
+      if (data.services.boarding) {
+        await SitterService.updateBoardingService({ active: true, base_price: data.pricing.base_price, boarding_max_pets: 5, boarding_overnight_supervision: true, boarding_allowed_pet_types: ["dog"], boarding_daily_walks: 2, boarding_potty_break_freq: "every_2_hours", boarding_sleeping_arrangement: "in_crate", boarding_separation_policy: true });
+      }
+      if (data.services.walking) {
+        await SitterService.updateWalkingService({ 
+          active: true, walking_duration: '30_min', walking_type: 'private', walking_max_dogs: 2, 
+          walking_leash_type: 'standard', walking_gps_tracking: true, walking_weather_policy: 'rain_or_shine' 
+        });
+      }
+
       await SitterService.updateExperience(data.experience);
-      if (data.services.boarding) await SitterService.updateHome(data.home);
+      if (data.services.boarding) {
+        await SitterService.updateHome(data.home);
+      }
       await SitterService.updateContent(data.content);
       await SitterService.updatePricing(data.pricing);
+
       await SitterService.submitForReview();
       setIsSubmitted(true);
     } catch (error) {

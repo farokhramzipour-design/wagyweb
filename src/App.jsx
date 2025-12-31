@@ -5,6 +5,7 @@ import Register from '@/pages/Register';
 import Dashboard from '@/pages/Dashboard';
 import About from '@/pages/About';
 import Services from '@/pages/Services';
+import BecomeSitter from '@/pages/BecomeSitter';
 import NotFound from '@/pages/NotFound';
 import MainLayout from '@/layouts/MainLayout';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
@@ -25,6 +26,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/become-sitter" 
+            element={
+              <ProtectedRoute>
+                <BecomeSitter />
               </ProtectedRoute>
             } 
           />
