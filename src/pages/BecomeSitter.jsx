@@ -48,6 +48,7 @@ const experienceSchema = z.object({
   pet_experience_types: z.array(z.string()).min(1, "Select at least one pet type"),
   breeds_experience: z.array(z.string()).optional(),
   size_experience: z.array(z.string()).min(1, "Select at least one size"),
+  behavioral_experience: z.array(z.string()),
   puppy_experience: z.boolean(),
   senior_pet_experience: z.boolean(),
   medication_experience: z.boolean(),
@@ -246,8 +247,8 @@ const ExperienceStep = ({ defaultValues, onNext, onBack }) => {
       ...defaultValues,
       pet_experience_types: defaultValues?.pet_experience_types || [],
       size_experience: defaultValues?.size_experience || [],
-      behavioral_experience: [],
-      breeds_experience: []
+      behavioral_experience: defaultValues?.behavioral_experience || [],
+      breeds_experience: defaultValues?.breeds_experience || []
     }
   });
 
@@ -289,6 +290,19 @@ const ExperienceStep = ({ defaultValues, onNext, onBack }) => {
               ))}
             </div>
             {errors.size_experience && <p className="text-sm text-red-500">{errors.size_experience.message}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Behavioral Experience</Label>
+            <div className="flex flex-wrap gap-4">
+              {['Anxious', 'Aggressive', 'Fearful', 'Hyperactive'].map(behavior => (
+                <label key={behavior} className="flex items-center space-x-2">
+                  <input type="checkbox" value={behavior} {...register("behavioral_experience")} className="rounded border-gray-300" />
+                  <span>{behavior}</span>
+                </label>
+              ))}
+            </div>
+            {errors.behavioral_experience && <p className="text-sm text-red-500">{errors.behavioral_experience.message}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -674,6 +688,7 @@ const BecomeSitter = () => {
             years_of_experience: profile?.years_of_experience || 0,
             pet_experience_types: profile?.pet_experience_types || [],
             size_experience: profile?.size_experience || [],
+            behavioral_experience: profile?.behavioral_experience || [],
             puppy_experience: profile?.puppy_experience || false,
             senior_pet_experience: profile?.senior_pet_experience || false,
             medication_experience: profile?.medication_experience || false,
