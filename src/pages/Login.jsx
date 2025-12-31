@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,13 +16,13 @@ const loginSchema = z.object({
   identifier: z.string().refine((val) => {
     // Check if it's a valid email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    // Check if it's a valid phone number (simple check: digits only, length 10-15)
-    // Also explicitly disallow starting with '0' as per requirement
-    const phoneRegex = /^[1-9][0-9]{9,14}$/;
+    // Check if it's a valid phone number (digits only, length 10-15)
+    // We allow starting with 0 here because we will strip it before submission
+    const phoneRegex = /^[0-9]{10,15}$/;
     
     return emailRegex.test(val) || phoneRegex.test(val);
   }, {
-    message: "Please enter a valid email or phone number (do not start with 0)",
+    message: "Please enter a valid email or phone number",
   }),
 });
 
@@ -37,13 +37,20 @@ const Login = () => {
   const [identifier, setIdentifier] = useState('');
   const [inputType, setInputType] = useState('email'); // 'email' or 'mobile'
   
-  const { register: registerInput, handleSubmit: handleSubmitInput, formState: { errors: inputErrors } } = useForm({
+  const { register: registerInput, handleSubmit: handleSubmitInput, formState: { errors: inputErrors }, setValue } = useForm({
     resolver: zodResolver(loginSchema),
   });
 
-  const { register: registerOtp, handleSubmit: handleSubmitOtp, formState: { errors: otpErrors } } = useForm({
+  const { register: registerOtp, handleSubmit: handleSubmitOtp, formState: { errors: otpErrors }, reset: resetOtp } = useForm({
     resolver: zodResolver(otpSchema),
   });
+
+  // Clear OTP input when step changes to 'otp'
+  useEffect(() => {
+    if (step === 'otp') {
+      resetOtp();
+    }
+  }, [step, resetOtp]);
 
   const determineInputType = (value) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -51,12 +58,21 @@ const Login = () => {
   };
 
   const onInputSubmit = async (data) => {
-    const type = determineInputType(data.identifier);
+    let rawValue = data.identifier;
+    const type = determineInputType(rawValue);
+    
+    // Automatically remove leading '0' for mobile numbers
+    if (type === 'mobile' && rawValue.startsWith('0')) {
+      rawValue = rawValue.substring(1);
+      // Update the form value to reflect the change (optional, but good for UX)
+      setValue('identifier', rawValue);
+    }
+
     setInputType(type);
-    setIdentifier(data.identifier);
+    setIdentifier(rawValue);
     
     try {
-      await requestOtp(data.identifier, type);
+      await requestOtp(rawValue, type);
       setStep('otp');
     } catch (err) {
       // Error is handled in context
@@ -93,7 +109,7 @@ const Login = () => {
           <CardDescription>
             {step === 'input' 
               ? 'Enter your email or mobile number to continue.' 
-              : `Enter the code sent to ${identifier}`
+              : 'Please enter the OTP sent to your device.'
             }
           </CardDescription>
         </CardHeader>
@@ -144,8 +160,9 @@ const Login = () => {
                 <Input 
                   id="otp" 
                   type="text" 
-                  placeholder="123456" 
+                  placeholder="Enter OTP" 
                   maxLength={6}
+                  autoFocus
                   {...registerOtp("otp")}
                 />
                 {otpErrors.otp && <p className="text-sm text-red-500">{otpErrors.otp.message}</p>}
