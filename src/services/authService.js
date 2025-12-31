@@ -39,3 +39,8 @@ export const verifyMobileOtp = async (phoneNumber, otp) => {
   const response = await api.post('/auth/mobile/verify', { phone_number: phoneNumber, otp });
   return response.data;
 };
+
+export const logoutUser = async () => {
+  const response = await api.post('/auth/logout');
+  return response.data;
+};

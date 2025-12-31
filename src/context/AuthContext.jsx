@@ -6,7 +6,8 @@ import {
   requestEmailOtp as requestEmailOtpService,
   verifyEmailOtp as verifyEmailOtpService,
   requestMobileOtp as requestMobileOtpService,
-  verifyMobileOtp as verifyMobileOtpService
+  verifyMobileOtp as verifyMobileOtpService,
+  logoutUser as logoutUserService
 } from '@/services/authService';
 
 export const AuthContext = createContext(null);
@@ -136,9 +137,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
+  const logout = async () => {
+    try {
+      await logoutUserService();
+    } catch (err) {
+      console.error("Logout failed:", err);
+      // Even if the API call fails, we should still clear the local state
+    } finally {
+      setUser(null);
+      localStorage.removeItem('user');
+    }
   };
 
   return (
