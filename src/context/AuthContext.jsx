@@ -4,7 +4,9 @@ import {
   register as registerService, 
   googleLogin as googleLoginService,
   requestEmailOtp as requestEmailOtpService,
-  verifyEmailOtp as verifyEmailOtpService
+  verifyEmailOtp as verifyEmailOtpService,
+  requestMobileOtp as requestMobileOtpService,
+  verifyMobileOtp as verifyMobileOtpService
 } from '@/services/authService';
 
 export const AuthContext = createContext(null);
@@ -92,11 +94,15 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const requestOtp = async (email) => {
+  const requestOtp = async (identifier, type) => {
     setLoading(true);
     setError(null);
     try {
-      await requestEmailOtpService(email);
+      if (type === 'email') {
+        await requestEmailOtpService(identifier);
+      } else {
+        await requestMobileOtpService(identifier);
+      }
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to send OTP');
       throw err;
@@ -105,11 +111,17 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const verifyOtp = async (email, otp) => {
+  const verifyOtp = async (identifier, otp, type) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await verifyEmailOtpService(email, otp);
+      let response;
+      if (type === 'email') {
+        response = await verifyEmailOtpService(identifier, otp);
+      } else {
+        response = await verifyMobileOtpService(identifier, otp);
+      }
+
       const userData = response.data.user;
       
       setUser(userData);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -11,8 +11,19 @@ import { Label } from '@/components/ui/Label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { ROUTES } from '@/constants/routes';
 
-const emailSchema = z.object({
-  email: z.string().email({ message: "Invalid email address" }),
+// Validation schema for the unified input (email or phone)
+const loginSchema = z.object({
+  identifier: z.string().refine((val) => {
+    // Check if it's a valid email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // Check if it's a valid phone number (simple check: digits only, length 10-15)
+    // Also explicitly disallow starting with '0' as per requirement
+    const phoneRegex = /^[1-9][0-9]{9,14}$/;
+    
+    return emailRegex.test(val) || phoneRegex.test(val);
+  }, {
+    message: "Please enter a valid email or phone number (do not start with 0)",
+  }),
 });
 
 const otpSchema = z.object({
@@ -22,21 +33,30 @@ const otpSchema = z.object({
 const Login = () => {
   const { requestOtp, verifyOtp, loginWithGoogle, error: authError, loading } = useAuth();
   const navigate = useNavigate();
-  const [step, setStep] = useState('email'); // 'email' or 'otp'
-  const [email, setEmail] = useState('');
+  const [step, setStep] = useState('input'); // 'input' or 'otp'
+  const [identifier, setIdentifier] = useState('');
+  const [inputType, setInputType] = useState('email'); // 'email' or 'mobile'
   
-  const { register: registerEmail, handleSubmit: handleSubmitEmail, formState: { errors: emailErrors } } = useForm({
-    resolver: zodResolver(emailSchema),
+  const { register: registerInput, handleSubmit: handleSubmitInput, formState: { errors: inputErrors } } = useForm({
+    resolver: zodResolver(loginSchema),
   });
 
   const { register: registerOtp, handleSubmit: handleSubmitOtp, formState: { errors: otpErrors } } = useForm({
     resolver: zodResolver(otpSchema),
   });
 
-  const onEmailSubmit = async (data) => {
+  const determineInputType = (value) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(value) ? 'email' : 'mobile';
+  };
+
+  const onInputSubmit = async (data) => {
+    const type = determineInputType(data.identifier);
+    setInputType(type);
+    setIdentifier(data.identifier);
+    
     try {
-      await requestOtp(data.email);
-      setEmail(data.email);
+      await requestOtp(data.identifier, type);
       setStep('otp');
     } catch (err) {
       // Error is handled in context
@@ -45,7 +65,7 @@ const Login = () => {
 
   const onOtpSubmit = async (data) => {
     try {
-      await verifyOtp(email, data.otp);
+      await verifyOtp(identifier, data.otp, inputType);
       navigate(ROUTES.HOME);
     } catch (err) {
       // Error is handled in context
@@ -69,27 +89,27 @@ const Login = () => {
     <div className="flex items-center justify-center min-h-[60vh]">
       <Card className="w-[350px]">
         <CardHeader>
-          <CardTitle>{step === 'email' ? 'Login / Register' : 'Verify OTP'}</CardTitle>
+          <CardTitle>{step === 'input' ? 'Login / Register' : 'Verify OTP'}</CardTitle>
           <CardDescription>
-            {step === 'email' 
-              ? 'Enter your email to continue.' 
-              : `Enter the code sent to ${email}`
+            {step === 'input' 
+              ? 'Enter your email or mobile number to continue.' 
+              : `Enter the code sent to ${identifier}`
             }
           </CardDescription>
         </CardHeader>
         
-        {step === 'email' ? (
-          <form onSubmit={handleSubmitEmail(onEmailSubmit)}>
+        {step === 'input' ? (
+          <form onSubmit={handleSubmitInput(onInputSubmit)}>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="identifier">Email or Mobile Number</Label>
                 <Input 
-                  id="email" 
-                  type="email" 
-                  placeholder="m@example.com" 
-                  {...registerEmail("email")}
+                  id="identifier" 
+                  type="text" 
+                  placeholder="email@example.com or 9123456789" 
+                  {...registerInput("identifier")}
                 />
-                {emailErrors.email && <p className="text-sm text-red-500">{emailErrors.email.message}</p>}
+                {inputErrors.identifier && <p className="text-sm text-red-500">{inputErrors.identifier.message}</p>}
               </div>
               {authError && <p className="text-sm text-red-500">{authError}</p>}
               
@@ -113,7 +133,7 @@ const Login = () => {
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-4">
-              <Button type="submit" className="w-full" isLoading={loading}>Continue with Email</Button>
+              <Button type="submit" className="w-full" isLoading={loading}>Continue</Button>
             </CardFooter>
           </form>
         ) : (
@@ -138,10 +158,10 @@ const Login = () => {
                 type="button" 
                 variant="ghost" 
                 className="w-full" 
-                onClick={() => setStep('email')}
+                onClick={() => setStep('input')}
                 disabled={loading}
               >
-                Back to Email
+                Back
               </Button>
             </CardFooter>
           </form>

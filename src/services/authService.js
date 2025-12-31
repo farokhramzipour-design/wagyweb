@@ -29,3 +29,13 @@ export const verifyEmailOtp = async (email, otp) => {
   const response = await api.post('/auth/email/verify', { email, otp });
   return response.data;
 };
+
+export const requestMobileOtp = async (phoneNumber) => {
+  const response = await api.post('/auth/mobile/login', { phone_number: phoneNumber });
+  return response.data;
+};
+
+export const verifyMobileOtp = async (phoneNumber, otp) => {
+  const response = await api.post('/auth/mobile/verify', { phone_number: phoneNumber, otp });
+  return response.data;
+};
