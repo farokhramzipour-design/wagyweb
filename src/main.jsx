@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import App from './App.jsx'
 import './index.css'
+import "leaflet/dist/leaflet.css"; // <-- Add this line
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { AuthProvider } from '@/context/AuthContext';
 
