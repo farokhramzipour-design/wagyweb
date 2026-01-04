@@ -15,10 +15,11 @@ const experienceSchema = z.object({
   pet_experience_types: z.array(z.string()).min(1, "Please select at least one pet type."),
   size_experience: z.array(z.string()).min(1, "Please select at least one pet size you're comfortable with."),
   first_aid_certified: z.boolean().optional(),
-  // Adding other optional fields for future use, with defaults.
   puppy_experience: z.boolean().optional(),
   senior_pet_experience: z.boolean().optional(),
   medication_experience: z.boolean().optional(),
+  breeds_experience: z.array(z.string()).optional(),
+  behavioral_experience: z.array(z.string()).optional(),
 });
 
 const Checkbox = ({ name, value, label, register }) => (
@@ -49,12 +50,18 @@ const ExperienceForm = ({ profileData, onSave, onBack }) => {
       puppy_experience: false,
       senior_pet_experience: false,
       medication_experience: false,
+      breeds_experience: [],
+      behavioral_experience: [],
     }
   });
 
   useEffect(() => {
     if (profileData?.experience) {
-      reset(profileData.experience);
+      reset({
+        ...profileData.experience,
+        breeds_experience: profileData.experience.breeds_experience || [],
+        behavioral_experience: profileData.experience.behavioral_experience || [],
+      });
     }
   }, [profileData, reset]);
 

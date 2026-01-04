@@ -1,10 +1,18 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import * as SitterService from '@/services/sitterService';
-import PersonalInfoForm from '@/components/sitter/PersonalInfoForm';
-import LocationForm from '@/components/sitter/LocationForm';
-import ServicesForm from '@/components/sitter/ServicesForm';
-import ExperienceForm from '@/components/sitter/ExperienceForm';
 import { Progress } from '@/components/ui/Progress';
+
+// Lazy load the form components
+const PersonalInfoForm = lazy(() => import('@/components/sitter/PersonalInfoForm'));
+const LocationForm = lazy(() => import('@/components/sitter/LocationForm'));
+const ServicesForm = lazy(() => import('@/components/sitter/ServicesForm'));
+const ExperienceForm = lazy(() => import('@/components/sitter/ExperienceForm'));
+
+const StepLoading = () => (
+  <div className="flex justify-center items-center h-96">
+    <p className="text-brand-charcoal">Loading next step...</p>
+  </div>
+);
 
 const BecomeSitter = () => {
   const [sitterProfile, setSitterProfile] = useState(null);
@@ -47,7 +55,6 @@ const BecomeSitter = () => {
     if (currentIndex < activeSteps.length - 1) {
       setCurrentStep(activeSteps[currentIndex + 1].id);
     } else {
-      // Handle final submission
       console.log("Final step reached!");
     }
   };
@@ -85,13 +92,15 @@ const BecomeSitter = () => {
         <Progress value={progress} className="mb-8" />
         
         <main>
-          {CurrentComponent && (
-            <CurrentComponent
-              profileData={sitterProfile}
-              onSave={handleSave}
-              onBack={handlePrevStep}
-            />
-          )}
+          <Suspense fallback={<StepLoading />}>
+            {CurrentComponent && (
+              <CurrentComponent
+                profileData={sitterProfile}
+                onSave={handleSave}
+                onBack={handlePrevStep}
+              />
+            )}
+          </Suspense>
         </main>
       </div>
     </div>
