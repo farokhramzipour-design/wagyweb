@@ -8,6 +8,7 @@ const LocationForm = lazy(() => import('@/components/sitter/LocationForm'));
 const ServicesForm = lazy(() => import('@/components/sitter/ServicesForm'));
 const ExperienceForm = lazy(() => import('@/components/sitter/ExperienceForm'));
 const HomeForm = lazy(() => import('@/components/sitter/HomeForm'));
+const ContentForm = lazy(() => import('@/components/sitter/ContentForm'));
 
 const StepLoading = () => (
   <div className="flex justify-center items-center h-96">
@@ -41,7 +42,7 @@ const BecomeSitter = () => {
     { id: 3, component: ServicesForm },
     { id: 4, component: ExperienceForm },
     { id: 5, component: HomeForm, condition: (profile) => profile?.services?.boarding?.active },
-    // { id: 6, component: ContentForm },
+    { id: 6, component: ContentForm },
     // { id: 7, component: PricingForm },
   ], []);
 
