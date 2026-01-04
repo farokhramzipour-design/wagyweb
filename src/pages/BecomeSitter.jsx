@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import * as SitterService from '@/services/sitterService';
 import PersonalInfoForm from '@/components/sitter/PersonalInfoForm';
+import LocationForm from '@/components/sitter/LocationForm';
+import { Progress } from '@/components/ui/Progress';
+
 
 const STEPS = {
   PERSONAL_INFO: 1,
@@ -8,10 +11,11 @@ const STEPS = {
   // ... other steps will be added here
 };
 
+const TOTAL_STEPS = 7; // Total number of steps in the flow
+
 const BecomeSitter = () => {
   const [sitterProfile, setSitterProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [currentStep, setCurrentStep] = useState(STEPS.PERSONAL_INFO);
 
   useEffect(() => {
@@ -22,7 +26,6 @@ const BecomeSitter = () => {
         setSitterProfile(data);
       } catch (err) {
         console.log("No existing sitter profile found. Starting fresh.");
-        // No need to set an error state if the profile just doesn't exist yet.
       } finally {
         setLoading(false);
       }
@@ -31,12 +34,20 @@ const BecomeSitter = () => {
     fetchProfile();
   }, []);
 
-  const handlePersonalInfoSave = (updatedData) => {
-    setSitterProfile(prev => ({ ...prev, ...updatedData }));
-    // setCurrentStep(STEPS.LOCATION); // We'll uncomment this when the next step is ready
-    console.log("Personal Info Saved!", updatedData);
-    alert("Step 1 Complete! Check the console for the saved data. The next step is not yet implemented.");
+  const handleNextStep = () => {
+    setCurrentStep(prev => prev + 1);
   };
+
+  const handlePrevStep = () => {
+    setCurrentStep(prev => prev - 1);
+  };
+
+  const handleSave = (stepData) => {
+    setSitterProfile(prev => ({ ...prev, ...stepData }));
+    handleNextStep();
+  };
+  
+  const progress = Math.round((currentStep / TOTAL_STEPS) * 100);
 
   if (loading) {
     return (
@@ -53,17 +64,26 @@ const BecomeSitter = () => {
           <h1 className="text-4xl font-bold text-brand-charcoal">Become a Wagy Sitter</h1>
           <p className="text-lg text-gray-600 mt-2">Join our community of trusted pet lovers. Let's get your profile set up.</p>
         </header>
+
+        <Progress value={progress} className="mb-8" />
         
         <main>
           {currentStep === STEPS.PERSONAL_INFO && (
             <PersonalInfoForm 
               profileData={sitterProfile} 
-              onSave={handlePersonalInfoSave} 
+              onSave={handleSave} 
             />
           )}
 
-          {/* The next steps in the form will be rendered here */}
-          {/* e.g., {currentStep === STEPS.LOCATION && <LocationForm />} */}
+          {currentStep === STEPS.LOCATION && (
+            <LocationForm 
+              profileData={sitterProfile}
+              onSave={handleSave}
+              onBack={handlePrevStep}
+            />
+          )}
+
+          {/* The next steps will be rendered here */}
         </main>
       </div>
     </div>
