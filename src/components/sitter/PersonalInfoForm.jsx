@@ -63,6 +63,7 @@ const PersonalInfoForm = ({ profileData, onSave }) => {
 
       if (photoFile) {
         const uploadResponse = await SitterService.uploadProfilePhoto(photoFile);
+        console.log('API Upload Response:', uploadResponse); // <-- DEBUGGING LINE
         photoUrl = uploadResponse.data.url;
         setValue('profile_photo', photoUrl);
       }
