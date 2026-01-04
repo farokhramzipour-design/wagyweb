@@ -54,6 +54,7 @@ const ServicesForm = ({ profileData, onSave, onBack }) => {
     setIsSubmitting(true);
     try {
       const boardingData = profileData?.services?.boarding || {};
+      const walkingData = profileData?.services?.walking || {};
 
       if (formData.boarding) {
         await SitterService.updateBoardingService({
@@ -72,6 +73,12 @@ const ServicesForm = ({ profileData, onSave, onBack }) => {
       if (formData.walking) {
         await SitterService.updateWalkingService({ 
           active: true,
+          walking_duration: walkingData.walking_duration || 30,
+          walking_type: walkingData.walking_type || 'private',
+          walking_max_dogs: walkingData.walking_max_dogs || 1,
+          walking_leash_type: walkingData.walking_leash_type || 'standard',
+          walking_gps_tracking: walkingData.walking_gps_tracking || false,
+          walking_weather_policy: walkingData.walking_weather_policy || 'flexible',
         });
       }
       
