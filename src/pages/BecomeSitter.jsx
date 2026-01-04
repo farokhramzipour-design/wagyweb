@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import * as SitterService from '@/services/sitterService';
 import PersonalInfoForm from '@/components/sitter/PersonalInfoForm';
 import LocationForm from '@/components/sitter/LocationForm';
+import ServicesForm from '@/components/sitter/ServicesForm';
 import { Progress } from '@/components/ui/Progress';
 
 
 const STEPS = {
   PERSONAL_INFO: 1,
   LOCATION: 2,
+  SERVICES: 3,
   // ... other steps will be added here
 };
 
@@ -77,6 +79,14 @@ const BecomeSitter = () => {
 
           {currentStep === STEPS.LOCATION && (
             <LocationForm 
+              profileData={sitterProfile}
+              onSave={handleSave}
+              onBack={handlePrevStep}
+            />
+          )}
+
+          {currentStep === STEPS.SERVICES && (
+            <ServicesForm
               profileData={sitterProfile}
               onSave={handleSave}
               onBack={handlePrevStep}
