@@ -6,19 +6,30 @@ import * as SitterService from '@/services/sitterService';
 
 import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/Label';
+import { Textarea } from '@/components/ui/Textarea';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { useToast } from '@/hooks/use-toast';
 
 const homeSchema = z.object({
   home_type: z.enum(["house", "apartment", "condo", "farm"]),
   fenced_yard: z.boolean().optional(),
-  pets_in_home: z.boolean().optional(),
+  pets_in_home: z.boolean(),
   children_in_home: z.boolean().optional(),
   smoking_home: z.boolean().optional(),
   home_ownership: z.enum(["own", "rent"]).default("own"),
   yard_size: z.enum(["none", "small", "medium", "large"]).default("none"),
   crate_available: z.boolean().optional(),
   cameras_in_home: z.boolean().optional(),
+  own_pets_details: z.string().optional(), // This will be a string from the textarea
+}).refine(data => {
+  // If user has pets, details are required.
+  if (data.pets_in_home && (!data.own_pets_details || data.own_pets_details.length < 10)) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Please provide a brief description of your pets (e.g., type, breed, temperament).",
+  path: ["own_pets_details"],
 });
 
 const SingleCheckbox = ({ name, label, register }) => (
@@ -32,7 +43,7 @@ const HomeForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { register, handleSubmit, formState: { errors }, reset } = useForm({
+  const { register, handleSubmit, formState: { errors }, reset, watch } = useForm({
     resolver: zodResolver(homeSchema),
     defaultValues: {
       home_type: 'house',
@@ -44,20 +55,34 @@ const HomeForm = ({ profileData, onSave, onBack }) => {
       yard_size: 'none',
       crate_available: false,
       cameras_in_home: false,
+      own_pets_details: '',
     }
   });
 
+  const petsInHome = watch('pets_in_home');
+
   useEffect(() => {
     if (profileData?.home) {
-      reset(profileData.home);
+      // Flatten the details object for the form
+      const details = profileData.home.own_pets_details?.description || '';
+      reset({ ...profileData.home, own_pets_details: details });
     }
   }, [profileData, reset]);
 
   const onSubmit = async (formData) => {
     setIsSubmitting(true);
     try {
-      await SitterService.updateHome(formData);
-      onSave({ home: formData });
+      const dataToSave = { ...formData };
+      // Transform the details string back into an object for the API
+      if (formData.pets_in_home) {
+        dataToSave.own_pets_details = { description: formData.own_pets_details };
+      } else {
+        // API requires the field, so send an empty object
+        dataToSave.own_pets_details = {};
+      }
+      
+      await SitterService.updateHome(dataToSave);
+      onSave({ home: dataToSave });
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message || "An unexpected error occurred.";
       addToast({ title: "Save Failed", description: errorMessage, variant: "destructive" });
@@ -87,6 +112,15 @@ const HomeForm = ({ profileData, onSave, onBack }) => {
             <Label className="text-brand-charcoal">Tell us more about your home</Label>
             <SingleCheckbox name="fenced_yard" label="I have a fenced yard" register={register} />
             <SingleCheckbox name="pets_in_home" label="Other pets live in my home" register={register} />
+            
+            {petsInHome && (
+              <div className="pl-6 space-y-2">
+                <Label htmlFor="own_pets_details">Please describe your pets</Label>
+                <Textarea id="own_pets_details" {...register('own_pets_details')} placeholder="e.g., One friendly Golden Retriever, 5 years old." />
+                {errors.own_pets_details && <p className="text-sm text-red-600">{errors.own_pets_details.message}</p>}
+              </div>
+            )}
+
             <SingleCheckbox name="children_in_home" label="Children live in my home" register={register} />
             <SingleCheckbox name="smoking_home" label="My home is a smoking environment" register={register} />
           </div>
