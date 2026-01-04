@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/Label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { useToast } from '@/hooks/use-toast';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select'; // Assuming you have a Select component
 
 const homeSchema = z.object({
   home_type: z.enum(["house", "apartment", "condo", "farm"]),
@@ -16,7 +15,6 @@ const homeSchema = z.object({
   pets_in_home: z.boolean().optional(),
   children_in_home: z.boolean().optional(),
   smoking_home: z.boolean().optional(),
-  // Adding other fields from original schema with defaults
   home_ownership: z.enum(["own", "rent"]).default("own"),
   yard_size: z.enum(["none", "small", "medium", "large"]).default("none"),
   crate_available: z.boolean().optional(),
@@ -34,7 +32,7 @@ const HomeForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { register, handleSubmit, formState: { errors }, reset, control } = useForm({
+  const { register, handleSubmit, formState: { errors }, reset } = useForm({
     resolver: zodResolver(homeSchema),
     defaultValues: {
       home_type: 'house',
@@ -78,8 +76,7 @@ const HomeForm = ({ profileData, onSave, onBack }) => {
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label className="text-brand-charcoal">What type of home do you live in?</Label>
-            {/* This assumes you have a custom Select component integrated with react-hook-form */}
-            <select {...register('home_type')} className="w-full p-2 border rounded-md">
+            <select {...register('home_type')} className="w-full p-2 border rounded-md bg-white">
                 <option value="house">House</option>
                 <option value="apartment">Apartment</option>
                 <option value="condo">Condo</option>
