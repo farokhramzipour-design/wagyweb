@@ -54,19 +54,18 @@ const ServicesForm = ({ profileData, onSave, onBack }) => {
     setIsSubmitting(true);
     try {
       const boardingData = profileData?.services?.boarding || {};
-      const walkingData = profileData?.services?.walking || {};
 
       if (formData.boarding) {
         await SitterService.updateBoardingService({
           active: true,
           base_price: boardingData.base_price || 25,
           boarding_max_pets: boardingData.boarding_max_pets || 2,
-          boarding_overnight_supervision: boardingData.boarding_overnight_supervision || 'owner_preference',
+          boarding_overnight_supervision: boardingData.boarding_overnight_supervision || true,
           boarding_allowed_pet_types: boardingData.boarding_allowed_pet_types || ['dog'],
           boarding_daily_walks: boardingData.boarding_daily_walks || 2,
           boarding_potty_break_freq: boardingData.boarding_potty_break_freq || 'every_4_hours',
-          boarding_sleeping_arrangement: boardingData.boarding_sleeping_arrangement || 'crate',
-          boarding_separation_policy: boardingData.boarding_separation_policy || 'none',
+          boarding_sleeping_arrangement: boardingData.boarding_sleeping_arrangement || 'in_crate',
+          boarding_separation_policy: boardingData.boarding_separation_policy || false,
         });
       }
 
