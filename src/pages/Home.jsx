@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ROUTES } from '@/constants/routes';
-import { Search, Dog, Home as HomeIcon, PawPrint } from 'lucide-react'; // Using lucide-react for icons
+import { Search, Dog, Home as HomeIcon, PawPrint } from 'lucide-react';
 
 const ServiceCard = ({ icon, title, description }) => (
   <div className="flex flex-col items-center p-6 text-center bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow">
@@ -24,13 +24,12 @@ const HowItWorksStep = ({ number, title, description }) => (
 
 const Home = () => {
   return (
-    <div className="bg-neutral-light-gray">
+    <div className="bg-white">
       {/* Hero Section */}
-      <section className="relative py-20 text-white bg-center bg-cover" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1525253086316-d0c936c814f8?q=80&w=2070&auto=format&fit=crop')" }}>
-        <div className="absolute inset-0 bg-black opacity-50"></div>
-        <div className="relative z-10 text-center container mx-auto">
-          <h1 className="text-5xl font-bold md:text-6xl">Find the perfect pet sitter</h1>
-          <p className="mt-4 text-xl text-gray-200">Book trusted sitters and walkers who'll treat your pets like family.</p>
+      <section className="py-20 text-center bg-neutral-light-gray">
+        <div className="container mx-auto">
+          <h1 className="text-5xl font-bold text-brand-charcoal md:text-6xl">Find the perfect pet sitter</h1>
+          <p className="mt-4 text-xl text-gray-600">Book trusted sitters and walkers who'll treat your pets like family.</p>
           <div className="mt-8 max-w-2xl mx-auto">
             <div className="flex items-center p-2 bg-white rounded-full shadow-lg">
               <Input 
