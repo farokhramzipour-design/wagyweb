@@ -1,24 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import * as SitterService from '@/services/sitterService';
 import PersonalInfoForm from '@/components/sitter/PersonalInfoForm';
 import LocationForm from '@/components/sitter/LocationForm';
 import ServicesForm from '@/components/sitter/ServicesForm';
+import ExperienceForm from '@/components/sitter/ExperienceForm';
 import { Progress } from '@/components/ui/Progress';
-
-
-const STEPS = {
-  PERSONAL_INFO: 1,
-  LOCATION: 2,
-  SERVICES: 3,
-  // ... other steps will be added here
-};
-
-const TOTAL_STEPS = 7; // Total number of steps in the flow
 
 const BecomeSitter = () => {
   const [sitterProfile, setSitterProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [currentStep, setCurrentStep] = useState(STEPS.PERSONAL_INFO);
+  const [currentStep, setCurrentStep] = useState(1);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -32,16 +23,40 @@ const BecomeSitter = () => {
         setLoading(false);
       }
     };
-
     fetchProfile();
   }, []);
 
+  const allSteps = useMemo(() => [
+    { id: 1, component: PersonalInfoForm },
+    { id: 2, component: LocationForm },
+    { id: 3, component: ServicesForm },
+    { id: 4, component: ExperienceForm },
+    // { id: 5, component: HomeForm, condition: (profile) => profile?.services?.boarding?.active },
+    // { id: 6, component: ContentForm },
+    // { id: 7, component: PricingForm },
+  ], []);
+
+  const activeSteps = useMemo(() => {
+    return allSteps.filter(step => !step.condition || step.condition(sitterProfile));
+  }, [allSteps, sitterProfile]);
+
+  const CurrentComponent = activeSteps.find(step => step.id === currentStep)?.component;
+
   const handleNextStep = () => {
-    setCurrentStep(prev => prev + 1);
+    const currentIndex = activeSteps.findIndex(step => step.id === currentStep);
+    if (currentIndex < activeSteps.length - 1) {
+      setCurrentStep(activeSteps[currentIndex + 1].id);
+    } else {
+      // Handle final submission
+      console.log("Final step reached!");
+    }
   };
 
   const handlePrevStep = () => {
-    setCurrentStep(prev => prev - 1);
+    const currentIndex = activeSteps.findIndex(step => step.id === currentStep);
+    if (currentIndex > 0) {
+      setCurrentStep(activeSteps[currentIndex - 1].id);
+    }
   };
 
   const handleSave = (stepData) => {
@@ -49,7 +64,7 @@ const BecomeSitter = () => {
     handleNextStep();
   };
   
-  const progress = Math.round((currentStep / TOTAL_STEPS) * 100);
+  const progress = Math.round((currentStep / allSteps.length) * 100);
 
   if (loading) {
     return (
@@ -70,30 +85,13 @@ const BecomeSitter = () => {
         <Progress value={progress} className="mb-8" />
         
         <main>
-          {currentStep === STEPS.PERSONAL_INFO && (
-            <PersonalInfoForm 
-              profileData={sitterProfile} 
-              onSave={handleSave} 
-            />
-          )}
-
-          {currentStep === STEPS.LOCATION && (
-            <LocationForm 
+          {CurrentComponent && (
+            <CurrentComponent
               profileData={sitterProfile}
               onSave={handleSave}
               onBack={handlePrevStep}
             />
           )}
-
-          {currentStep === STEPS.SERVICES && (
-            <ServicesForm
-              profileData={sitterProfile}
-              onSave={handleSave}
-              onBack={handlePrevStep}
-            />
-          )}
-
-          {/* The next steps will be rendered here */}
         </main>
       </div>
     </div>
