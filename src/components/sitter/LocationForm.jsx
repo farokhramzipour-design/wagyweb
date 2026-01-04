@@ -79,7 +79,7 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
       longitude: mapPosition.lng,
       service_radius_km: profileData?.location?.service_radius_km || 10,
       available_days: profileData?.location?.available_days || [],
-      available_time_slots: profileData?.location?.available_time_slots || [],
+      available_time_slots: profileData?.location?.available_time_slots ? Object.keys(profileData.location.available_time_slots) : [],
     }
   });
 
@@ -95,7 +95,19 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
   const onSubmit = async (formData) => {
     setIsSubmitting(true);
     try {
-      const dataToSave = { ...formData, availability_type: 'part_time' };
+      // Transform time slots array to an object
+      const timeSlotsObject = formData.available_time_slots.reduce((acc, slot) => {
+        acc[slot] = true;
+        return acc;
+      }, {});
+
+      const dataToSave = { 
+        ...formData, 
+        available_time_slots: timeSlotsObject,
+        blackout_dates: [], // Add required blackout_dates field
+        availability_type: 'part_time' 
+      };
+
       await SitterService.updateLocation(dataToSave);
       onSave({ location: dataToSave });
     } catch (err) {
