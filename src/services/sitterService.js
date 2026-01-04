@@ -16,12 +16,19 @@ export const getSitterProfile = () => api.get('/sitters/me');
  * @param {File} file The image file to upload.
  * @returns {Promise<Object>} The response containing the photo URL.
  */
-export const uploadProfilePhoto = (file) => {
+export const uploadProfilePhoto = async (file) => {
   const formData = new FormData();
   formData.append('file', file);
-  return api.post('/sitters/upload-profile-photo', formData, {
+  const response = await api.post('/sitters/upload-profile-photo', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
+
+  // Fix for Mixed Content error: Ensure URL is HTTPS.
+  if (response.data && response.data.url && response.data.url.startsWith('http://')) {
+    response.data.url = response.data.url.replace('http://', 'https://');
+  }
+  
+  return response;
 };
 
 /**
