@@ -10,13 +10,12 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { useToast } from '@/hooks/use-toast';
 import { Home, Dog } from 'lucide-react';
 
-// Schema to ensure at least one service is selected
 const servicesSchema = z.object({
   boarding: z.boolean().optional(),
   walking: z.boolean().optional(),
 }).refine(data => data.boarding || data.walking, {
   message: "Please select at least one service to offer.",
-  path: ["services"], // Assign error to a custom path
+  path: ["services"],
 });
 
 const ServiceCheckbox = ({ name, register, icon, title, description }) => (
@@ -45,15 +44,31 @@ const ServicesForm = ({ profileData, onSave, onBack }) => {
   const onSubmit = async (formData) => {
     setIsSubmitting(true);
     try {
-      // We call the update services endpoint for each selected service
+      const boardingData = profileData?.services?.boarding || {};
+      const walkingData = profileData?.services?.walking || {};
+
       if (formData.boarding) {
-        await SitterService.updateBoardingService({ active: true });
+        await SitterService.updateBoardingService({
+          active: true,
+          base_price: boardingData.base_price || 25,
+          boarding_max_pets: boardingData.boarding_max_pets || 2,
+          boarding_overnight_supervision: boardingData.boarding_overnight_supervision || 'owner_preference',
+          boarding_allowed_pet_types: boardingData.boarding_allowed_pet_types || ['dog'],
+          boarding_daily_walks: boardingData.boarding_daily_walks || 2,
+          boarding_potty_break_freq: boardingData.boarding_potty_break_freq || 'every_4_hours',
+          boarding_sleeping_arrangement: boardingData.boarding_sleeping_arrangement || 'crate',
+          boarding_separation_policy: boardingData.boarding_separation_policy || 'none',
+        });
       }
+
       if (formData.walking) {
-        await SitterService.updateWalkingService({ active: true });
+        // Assuming walking service might have its own detailed fields in the future
+        await SitterService.updateWalkingService({ 
+          active: true,
+          // Add default walking fields here if they become required
+        });
       }
       
-      // We need to structure the saved data to match the profile object
       const savedData = {
         services: {
           boarding: { active: formData.boarding },
