@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import * as SitterService from '@/services/sitterService';
 
 import { Button } from '@/components/ui/Button';
@@ -33,13 +33,22 @@ const ServicesForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { register, handleSubmit, formState: { errors } } = useForm({
+  const { register, handleSubmit, formState: { errors }, reset } = useForm({
     resolver: zodResolver(servicesSchema),
     defaultValues: {
-      boarding: profileData?.services?.boarding?.active || false,
-      walking: profileData?.services?.walking?.active || false,
+      boarding: false,
+      walking: false,
     }
   });
+
+  useEffect(() => {
+    if (profileData) {
+      reset({
+        boarding: profileData.services?.boarding?.active || false,
+        walking: profileData.services?.walking?.active || false,
+      });
+    }
+  }, [profileData, reset]);
 
   const onSubmit = async (formData) => {
     setIsSubmitting(true);
@@ -62,10 +71,8 @@ const ServicesForm = ({ profileData, onSave, onBack }) => {
       }
 
       if (formData.walking) {
-        // Assuming walking service might have its own detailed fields in the future
         await SitterService.updateWalkingService({ 
           active: true,
-          // Add default walking fields here if they become required
         });
       }
       
