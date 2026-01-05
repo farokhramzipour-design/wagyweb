@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import * as SitterService from '@/services/sitterService';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/Label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { useToast } from '@/hooks/use-toast';
 import { LocateFixed } from 'lucide-react';
+import { debounce } from 'lodash';
 
 // Fix for default Leaflet icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -45,14 +46,17 @@ const Checkbox = ({ name, value, label, register }) => (
     </label>
 );
 
-const MapEvents = ({ setPosition }) => {
+const MapEvents = ({ onLocationChange }) => {
   useMapEvents({
     click(e) {
-      setPosition(e.latlng);
+      onLocationChange(e.latlng);
     },
     locationfound(e) {
-      setPosition(e.latlng);
+      onLocationChange(e.latlng);
     },
+    dragend(e) {
+      onLocationChange(e.target.getLatLng());
+    }
   });
   return null;
 };
@@ -70,6 +74,20 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
       service_radius_km: 10, available_days: [], available_time_slots: [],
     }
   });
+
+  const reverseGeocode = useCallback(debounce(async (lat, lng) => {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+      const data = await response.json();
+      if (data.address) {
+        setValue('city', data.address.city || data.address.town || data.address.village || '');
+        setValue('country', data.address.country || '');
+      }
+    } catch (error) {
+      console.error("Reverse geocoding failed:", error);
+      addToast({ title: "Location Error", description: "Could not automatically detect city and country.", variant: "destructive" });
+    }
+  }, 500), [setValue, addToast]);
 
   useEffect(() => {
     if (profileData) {
@@ -92,10 +110,15 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
     }
   }, [profileData, reset]);
 
-  useEffect(() => {
-    setValue('latitude', mapPosition.lat);
-    setValue('longitude', mapPosition.lng);
-  }, [mapPosition, setValue]);
+  const handleLocationChange = (latlng) => {
+    setMapPosition(latlng);
+    setValue('latitude', latlng.lat);
+    setValue('longitude', latlng.lng);
+    reverseGeocode(latlng.lat, latlng.lng);
+    if (mapRef.current) {
+      mapRef.current.flyTo(latlng, mapRef.current.getZoom());
+    }
+  };
 
   const handleLocateMe = () => {
     if (mapRef.current) {
@@ -133,8 +156,8 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
           <div className="relative h-64 w-full rounded-lg overflow-hidden z-0">
             <MapContainer center={mapPosition} zoom={13} style={{ height: '100%', width: '100%' }} ref={mapRef}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
-              <Marker draggable={true} position={mapPosition} eventHandlers={{ dragend: (e) => setMapPosition(e.target.getLatLng()) }} />
-              <MapEvents setPosition={setMapPosition} />
+              <Marker draggable={true} position={mapPosition} eventHandlers={{ dragend: (e) => handleLocationChange(e.target.getLatLng()) }} />
+              <MapEvents onLocationChange={handleLocationChange} />
             </MapContainer>
             <Button type="button" size="icon" className="absolute top-3 right-3 z-[1000] bg-white text-brand-charcoal hover:bg-neutral-light-gray shadow-md" onClick={handleLocateMe}>
               <LocateFixed className="h-5 w-5" />
