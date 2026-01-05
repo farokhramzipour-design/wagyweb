@@ -102,7 +102,7 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
 
   const handleDocumentChange = (e) => {
     const file = e.target.files[0];
-    if (file) { setDocumentFile(file); clearErrors("id_document"); }
+    if (file) { setDocumentFile(file); clearErrors("government_id_image"); }
   };
 
   const handleSendOtp = async () => {
@@ -133,7 +133,7 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
     setIsSubmitting(true);
     try {
       let photoUrl = profileData?.profile_photo || null;
-      let docUrl = profileData?.id_document || null;
+      let docUrl = profileData?.government_id_image || null;
 
       if (photoFile) {
         const photoRes = await SitterService.uploadProfilePhoto(photoFile);
@@ -142,7 +142,7 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
       
       if (documentFile) {
         const docRes = await SitterService.uploadIdDocument(documentFile);
-        docUrl = docRes.data.id_document;
+        docUrl = docRes.data.government_id_image;
       }
 
       if (!photoUrl) {
@@ -151,12 +151,12 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
         return;
       }
       if (!docUrl) {
-        setError("id_document", { type: "manual", message: "ID document is required." });
+        setError("government_id_image", { type: "manual", message: "ID document is required." });
         setIsSubmitting(false);
         return;
       }
 
-      const finalData = { ...formData, profile_photo: photoUrl, id_document: docUrl };
+      const finalData = { ...formData, profile_photo: photoUrl, government_id_image: docUrl };
       const response = await SitterService.updatePersonalInfo(finalData);
       onSave(response.data);
     } catch (err) {
@@ -223,7 +223,7 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
                 <span className="text-sm text-gray-600">{documentFile ? documentFile.name : 'Click to upload'}</span>
               </Label>
               <Input id="document-upload" type="file" accept="image/*,application/pdf" onChange={handleDocumentChange} className="hidden" />
-              {errors.id_document && <p className="text-sm text-red-600">{errors.id_document.message}</p>}
+              {errors.government_id_image && <p className="text-sm text-red-600">{errors.government_id_image.message}</p>}
             </div>
           </div>
 
