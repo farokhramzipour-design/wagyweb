@@ -1,11 +1,12 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import * as SitterService from '@/services/sitterService';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
+import { Textarea } from '@/components/ui/Textarea';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { useToast } from '@/hooks/use-toast';
 import { UploadCloud } from 'lucide-react';
@@ -16,6 +17,7 @@ const personalInfoSchema = z.object({
   phone_number: z.string().min(10, "A valid phone number is required."),
   national_code: z.string().min(10, "National code must be 10 digits.").max(10, "National code must be 10 digits."),
   postal_code: z.string().min(10, "Postal code must be 10 digits.").max(10, "Postal code must be 10 digits."),
+  address: z.string().min(5, "Address is required."),
   emergency_contact_name: z.string().min(2, "Emergency contact is required."),
   emergency_contact_phone: z.string().min(10, "A valid phone number is required."),
 });
@@ -37,16 +39,18 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
   const [otpSent, setOtpSent] = useState(false);
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
   const [otp, setOtp] = useState('');
+  const [isFetchingAddress, setIsFetchingAddress] = useState(false);
 
   const { register, handleSubmit, formState: { errors }, setValue, reset, watch, setError, clearErrors } = useForm({
     resolver: zodResolver(personalInfoSchema),
     defaultValues: {
       full_name: '', date_of_birth: '', phone_number: '', national_code: '',
-      postal_code: '', emergency_contact_name: '', emergency_contact_phone: '',
+      postal_code: '', address: '', emergency_contact_name: '', emergency_contact_phone: '',
     }
   });
 
   const phoneNumber = watch('phone_number');
+  const postalCode = watch('postal_code');
 
   useEffect(() => {
     if (profileData) {
@@ -56,21 +60,49 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
     }
   }, [profileData, reset]);
 
+  const handleAddressFetch = useCallback(async (code) => {
+    if (code.length === 10) {
+      setIsFetchingAddress(true);
+      try {
+        const response = await SitterService.getAddressFromPostalCode(code);
+        const addressData = response.data.response_body.data.address;
+        if (addressData) {
+          const fullAddress = [
+            addressData.province,
+            addressData.town,
+            addressData.district,
+            addressData.street2,
+            addressData.street,
+            `Building: ${addressData.building_name}`,
+            `Number: ${addressData.number}`,
+            `Floor: ${addressData.floor}`,
+            `Side Floor: ${addressData.side_floor}`
+          ].filter(part => part && part.trim() !== '' && !part.includes('-')).join(', ');
+          setValue('address', fullAddress);
+          clearErrors('address');
+        } else {
+           setError('address', { type: 'manual', message: 'Could not find address. Please enter it manually.' });
+        }
+      } catch (error) {
+        setError('address', { type: 'manual', message: 'Could not find address. Please enter it manually.' });
+      } finally {
+        setIsFetchingAddress(false);
+      }
+    }
+  }, [setValue, setError, clearErrors]);
+
+  useEffect(() => {
+    handleAddressFetch(postalCode);
+  }, [postalCode, handleAddressFetch]);
+
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      setPhotoFile(file);
-      setPhotoPreview(URL.createObjectURL(file));
-      clearErrors("profile_photo");
-    }
+    if (file) { setPhotoFile(file); setPhotoPreview(URL.createObjectURL(file)); clearErrors("profile_photo"); }
   };
 
   const handleDocumentChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      setDocumentFile(file);
-      clearErrors("id_document");
-    }
+    if (file) { setDocumentFile(file); clearErrors("id_document"); }
   };
 
   const handleSendOtp = async () => {
@@ -79,7 +111,7 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
       setOtpSent(true);
       addToast({ title: "OTP Sent", description: "An OTP has been sent to your phone." });
     } catch (error) {
-      addToast({ title: "Error", description: "Could not send OTP. Please check the phone number.", variant: "destructive" });
+      addToast({ title: "Error", description: "Could not send OTP.", variant: "destructive" });
     }
   };
 
@@ -87,15 +119,15 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
     try {
       await SitterService.verifyMobileOtp(phoneNumber, otp);
       setIsPhoneVerified(true);
-      addToast({ title: "Success", description: "Your phone number has been verified." });
+      addToast({ title: "Success", description: "Phone number verified." });
     } catch (error) {
-      addToast({ title: "Verification Failed", description: "The OTP is incorrect. Please try again.", variant: "destructive" });
+      addToast({ title: "Verification Failed", description: "Incorrect OTP.", variant: "destructive" });
     }
   };
 
   const onSubmit = async (formData) => {
     if (!isPhoneVerified) {
-      addToast({ title: "Verification Required", description: "Please verify your phone number before continuing.", variant: "destructive" });
+      addToast({ title: "Verification Required", description: "Please verify your phone number.", variant: "destructive" });
       return;
     }
     setIsSubmitting(true);
@@ -112,16 +144,8 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
         docUrl = docRes.data.url;
       }
 
-      if (!photoUrl) {
-        setError("profile_photo", { type: "manual", message: "Profile photo is required." });
-        setIsSubmitting(false);
-        return;
-      }
-      if (!docUrl) {
-        setError("id_document", { type: "manual", message: "ID document is required." });
-        setIsSubmitting(false);
-        return;
-      }
+      if (!photoUrl) { setError("profile_photo", { type: "manual", message: "Profile photo is required." }); setIsSubmitting(false); return; }
+      if (!docUrl) { setError("id_document", { type: "manual", message: "ID document is required." }); setIsSubmitting(false); return; }
 
       const finalData = { ...formData, profile_photo: photoUrl, id_document: docUrl };
       const response = await SitterService.updatePersonalInfo(finalData);
@@ -147,16 +171,18 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
             <Field name="national_code" label="National Code" register={register} error={errors.national_code} />
             <Field name="postal_code" label="Postal Code" register={register} error={errors.postal_code} />
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="address">Address</Label>
+            <Textarea id="address" {...register('address')} disabled={isFetchingAddress} placeholder={isFetchingAddress ? "Fetching address..." : "Enter your full address"} />
+            {errors.address && <p className="text-sm text-red-600 mt-1">{errors.address.message}</p>}
+          </div>
           
           <div className="space-y-2">
             <Label>Phone Number Verification</Label>
             <div className="flex gap-2">
               <Input {...register('phone_number')} placeholder="e.g., 09123456789" disabled={isPhoneVerified || otpSent} />
-              {!isPhoneVerified && (
-                <Button type="button" onClick={handleSendOtp} disabled={otpSent}>
-                  {otpSent ? 'OTP Sent' : 'Send OTP'}
-                </Button>
-              )}
+              {!isPhoneVerified && <Button type="button" onClick={handleSendOtp} disabled={otpSent}>{otpSent ? 'OTP Sent' : 'Send OTP'}</Button>}
             </div>
             {errors.phone_number && <p className="text-sm text-red-600">{errors.phone_number.message}</p>}
             {isPhoneVerified && <p className="text-sm text-green-600">Phone number verified!</p>}

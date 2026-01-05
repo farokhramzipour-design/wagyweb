@@ -6,6 +6,16 @@ export const verifyEmailOtp = (email, otp) => api.post('/auth/email/verify', { e
 export const requestMobileOtp = (phone_number) => api.post('/auth/mobile/login', { phone_number });
 export const verifyMobileOtp = (phone_number, otp) => api.post('/auth/mobile/verify', { phone_number, otp });
 
+// --- Utils ---
+/**
+ * Fetches address details from a postal code.
+ * @param {string} postalCode The 10-digit postal code.
+ * @returns {Promise<Object>} The address data.
+ */
+export const getAddressFromPostalCode = (postalCode) => {
+  return api.get(`/utils/address-from-postalcode?postal_code=${postalCode}`);
+};
+
 // --- Sitter Profile Onboarding ---
 export const getSitterProfile = () => api.get('/sitters/me');
 
@@ -41,16 +51,9 @@ export const deleteGalleryPhotos = (photos) => {
   return api.post('/sitters/delete-gallery-photos', { photos });
 };
 
-/**
- * Uploads the user's ID document.
- * @param {File} file The document file to upload.
- * @returns {Promise<Object>} The response containing the document URL.
- */
 export const uploadIdDocument = async (file) => {
     const formData = new FormData();
     formData.append('file', file);
-    // Assuming an endpoint like this exists based on the other upload endpoints.
-    // This may need to be adjusted based on the actual API spec.
     const response = await api.post('/sitters/upload-id-document', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     });
