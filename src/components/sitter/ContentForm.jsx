@@ -23,7 +23,7 @@ const ContentForm = ({ profileData, onSave, onBack }) => {
   const [newPhotos, setNewPhotos] = useState([]);
   const [existingPhotos, setExistingPhotos] = useState([]);
 
-  const { register, handleSubmit, formState: { errors }, reset, getValues, setError, clearErrors } = useForm({
+  const { register, handleSubmit, formState: { errors }, reset, setError, clearErrors } = useForm({
     resolver: zodResolver(contentSchema),
     defaultValues: {
       headline: '',
@@ -48,7 +48,7 @@ const ContentForm = ({ profileData, onSave, onBack }) => {
       return;
     }
     setNewPhotos(prev => [...prev, ...files]);
-    clearErrors("photo_gallery"); // Clear error when user adds new photos
+    clearErrors("photo_gallery");
   };
 
   const removeNewPhoto = (index) => {
@@ -70,14 +70,8 @@ const ContentForm = ({ profileData, onSave, onBack }) => {
 
       const finalGallery = [...existingPhotos, ...uploadedUrls];
 
-      // Manual validation for the photo gallery
-      if (finalGallery.length < 1) {
-        setError("photo_gallery", { type: "manual", message: "Please upload at least one photo." });
-        setIsSubmitting(false);
-        return;
-      }
-      if (finalGallery.length > 10) {
-        setError("photo_gallery", { type: "manual", message: "You can upload a maximum of 10 photos." });
+      if (finalGallery.length < 1 || finalGallery.length > 10) {
+        setError("photo_gallery", { type: "manual", message: "Please provide between 1 and 10 photos." });
         setIsSubmitting(false);
         return;
       }
