@@ -5,14 +5,14 @@ import { useState, useMemo, useEffect } from 'react';
 import * as SitterService from '@/services/sitterService';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
-
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { useToast } from '@/hooks/use-toast';
+import { LocateFixed } from 'lucide-react';
 
-// Fix for default Leaflet icon issue with bundlers
+// Fix for default Leaflet icon issue
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -45,14 +45,21 @@ const Checkbox = ({ name, value, label, register }) => (
     </label>
 );
 
-const DraggableMarker = ({ position, setPosition }) => {
+const MapUpdater = ({ setPosition }) => {
   const map = useMapEvents({
     click(e) {
       setPosition(e.latlng);
       map.flyTo(e.latlng, map.getZoom());
     },
+    locationfound(e) {
+      setPosition(e.latlng);
+      map.flyTo(e.latlng, 13);
+    },
   });
+  return null;
+};
 
+const DraggableMarker = ({ position, setPosition }) => {
   const markerHandlers = useMemo(() => ({
     dragend(e) {
       setPosition(e.target.getLatLng());
@@ -66,34 +73,30 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mapPosition, setMapPosition] = useState({ lat: 40.7128, lng: -74.0060 });
+  const [mapInstance, setMapInstance] = useState(null);
 
   const { register, handleSubmit, watch, formState: { errors }, setValue, reset } = useForm({
     resolver: zodResolver(locationSchema),
     defaultValues: {
-      country: 'USA',
-      city: '',
-      latitude: 40.7128,
-      longitude: -74.0060,
-      service_radius_km: 10,
-      available_days: [],
-      available_time_slots: [],
+      country: 'USA', city: '', latitude: 40.7128, longitude: -74.0060,
+      service_radius_km: 10, available_days: [], available_time_slots: [],
     }
   });
 
   useEffect(() => {
     if (profileData) {
-      const location = profileData.location || {};
-      const lat = location.latitude || 40.7128;
-      const lng = location.longitude || -74.0060;
+      const { country, city, latitude, longitude, service_radius_km, available_days, available_time_slots } = profileData;
+      const lat = latitude || 40.7128;
+      const lng = longitude || -74.0060;
       setMapPosition({ lat, lng });
       reset({
-        country: location.country || 'USA',
-        city: location.city || '',
+        country: country || 'USA',
+        city: city || '',
         latitude: lat,
         longitude: lng,
-        service_radius_km: location.service_radius_km || 10,
-        available_days: location.available_days || [],
-        available_time_slots: location.available_time_slots ? Object.keys(location.available_time_slots) : [],
+        service_radius_km: service_radius_km || 10,
+        available_days: available_days || [],
+        available_time_slots: available_time_slots ? Object.keys(available_time_slots) : [],
       });
     }
   }, [profileData, reset]);
@@ -103,30 +106,26 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
     setValue('longitude', mapPosition.lng);
   }, [mapPosition, setValue]);
 
-  const radius = watch('service_radius_km');
-  const weekDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-  const timeSlots = ['morning', 'afternoon', 'evening'];
+  const handleLocateMe = () => {
+    if (mapInstance) {
+      mapInstance.locate();
+    }
+  };
 
   const onSubmit = async (formData) => {
     setIsSubmitting(true);
     try {
-      const timeSlotsObject = formData.available_time_slots.reduce((acc, slot) => {
-        acc[slot] = true;
-        return acc;
-      }, {});
-
+      const timeSlotsObject = formData.available_time_slots.reduce((acc, slot) => ({ ...acc, [slot]: true }), {});
       const dataToSave = { 
         ...formData, 
         available_time_slots: timeSlotsObject,
-        blackout_dates: [],
+        blackout_dates: profileData?.blackout_dates || [],
         availability_type: 'part_time' 
       };
-
-      await SitterService.updateLocation(dataToSave);
-      onSave({ location: dataToSave });
+      const response = await SitterService.updateLocation(dataToSave);
+      onSave(response.data);
     } catch (err) {
-      const errorMessage = err.response?.data?.message || err.message || "An unexpected error occurred.";
-      addToast({ title: "Save Failed", description: errorMessage, variant: "destructive" });
+      addToast({ title: "Save Failed", description: err.response?.data?.message || err.message, variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -137,38 +136,38 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
       <Card className="border-neutral-gray shadow-md">
         <CardHeader>
           <CardTitle>Location & Availability</CardTitle>
-          <CardDescription>Set your service area and schedule. Drag the pin to your approximate location.</CardDescription>
+          <CardDescription>Set your service area. Drag the pin or use your current location.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="h-64 w-full rounded-lg overflow-hidden z-0">
-            <MapContainer center={mapPosition} zoom={13} style={{ height: '100%', width: '100%' }}>
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              />
+          <div className="relative h-64 w-full rounded-lg overflow-hidden z-0">
+            <MapContainer center={mapPosition} zoom={13} style={{ height: '100%', width: '100%' }} whenCreated={setMapInstance}>
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
               <DraggableMarker position={mapPosition} setPosition={setMapPosition} />
+              <MapUpdater setPosition={setMapPosition} />
             </MapContainer>
+            <Button type="button" size="icon" className="absolute top-2 right-2 z-10 bg-white text-brand-charcoal hover:bg-neutral-light-gray" onClick={handleLocateMe}>
+              <LocateFixed className="h-5 w-5" />
+            </Button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Field name="country" label="Country" register={register} error={errors.country} />
             <Field name="city" label="City" register={register} error={errors.city} placeholder="e.g., New York" />
           </div>
           <div className="space-y-2">
-            <Label>Service Radius: {radius} km</Label>
+            <Label>Service Radius: {watch('service_radius_km')} km</Label>
             <Input type="range" min="1" max="100" {...register('service_radius_km')} />
-            {errors.service_radius_km && <p className="text-sm text-red-600">{errors.service_radius_km.message}</p>}
           </div>
           <div className="space-y-3">
             <Label>Available Days</Label>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-              {weekDays.map(day => <Checkbox key={day} name="available_days" value={day} label={day.charAt(0).toUpperCase() + day.slice(1)} register={register} />)}
+              {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => <Checkbox key={day} name="available_days" value={day} label={day.charAt(0).toUpperCase() + day.slice(1)} register={register} />)}
             </div>
             {errors.available_days && <p className="text-sm text-red-600 mt-2">{errors.available_days.message}</p>}
           </div>
           <div className="space-y-3">
             <Label>Available Time Slots</Label>
             <div className="grid grid-cols-3 gap-3">
-              {timeSlots.map(slot => <Checkbox key={slot} name="available_time_slots" value={slot} label={slot.charAt(0).toUpperCase() + slot.slice(1)} register={register} />)}
+              {['morning', 'afternoon', 'evening'].map(slot => <Checkbox key={slot} name="available_time_slots" value={slot} label={slot.charAt(0).toUpperCase() + slot.slice(1)} register={register} />)}
             </div>
             {errors.available_time_slots && <p className="text-sm text-red-600 mt-2">{errors.available_time_slots.message}</p>}
           </div>
