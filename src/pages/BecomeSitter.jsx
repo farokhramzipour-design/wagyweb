@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import * as SitterService from '@/services/sitterService';
 import { Progress } from '@/components/ui/Progress';
+import { Button } from '@/components/ui/Button';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 
 // Lazy load the form components
 const PersonalInfoForm = lazy(() => import('@/components/sitter/PersonalInfoForm'));
@@ -9,6 +11,7 @@ const ServicesForm = lazy(() => import('@/components/sitter/ServicesForm'));
 const ExperienceForm = lazy(() => import('@/components/sitter/ExperienceForm'));
 const HomeForm = lazy(() => import('@/components/sitter/HomeForm'));
 const ContentForm = lazy(() => import('@/components/sitter/ContentForm'));
+const PricingForm = lazy(() => import('@/components/sitter/PricingForm'));
 
 const StepLoading = () => (
   <div className="flex justify-center items-center h-96">
@@ -16,10 +19,25 @@ const StepLoading = () => (
   </div>
 );
 
+const ReviewScreen = () => (
+  <Card className="text-center">
+    <CardHeader>
+      <CardTitle className="text-brand-green text-2xl">🎉 Application Submitted! 🎉</CardTitle>
+      <CardDescription>Your profile is now under review. We'll notify you once it's approved.</CardDescription>
+    </CardHeader>
+    <CardContent>
+      <Button asChild>
+        <a href="/dashboard">Go to Your Dashboard</a>
+      </Button>
+    </CardContent>
+  </Card>
+);
+
 const BecomeSitter = () => {
   const [sitterProfile, setSitterProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentStep, setCurrentStep] = useState(1);
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -43,7 +61,7 @@ const BecomeSitter = () => {
     { id: 4, component: ExperienceForm },
     { id: 5, component: HomeForm, condition: (profile) => profile?.services?.boarding?.active },
     { id: 6, component: ContentForm },
-    // { id: 7, component: PricingForm },
+    { id: 7, component: PricingForm },
   ], []);
 
   const activeSteps = useMemo(() => {
@@ -51,13 +69,14 @@ const BecomeSitter = () => {
   }, [allSteps, sitterProfile]);
 
   const CurrentComponent = activeSteps.find(step => step.id === currentStep)?.component;
+  const isLastStep = currentStep === activeSteps[activeSteps.length - 1].id;
 
   const handleNextStep = () => {
-    const currentIndex = activeSteps.findIndex(step => step.id === currentStep);
-    if (currentIndex < activeSteps.length - 1) {
-      setCurrentStep(activeSteps[currentIndex + 1].id);
+    if (isLastStep) {
+      handleFinalSubmit();
     } else {
-      console.log("Final step reached!");
+      const currentIndex = activeSteps.findIndex(step => step.id === currentStep);
+      setCurrentStep(activeSteps[currentIndex + 1].id);
     }
   };
 
@@ -72,13 +91,31 @@ const BecomeSitter = () => {
     setSitterProfile(prev => ({ ...prev, ...stepData }));
     handleNextStep();
   };
+
+  const handleFinalSubmit = async () => {
+    try {
+      await SitterService.submitForReview();
+      setIsSubmitted(true);
+    } catch (error) {
+      console.error("Submission failed:", error);
+      // You might want to show a toast message here
+    }
+  };
   
-  const progress = Math.round((currentStep / allSteps.length) * 100);
+  const progress = Math.round(((activeSteps.findIndex(step => step.id === currentStep) + 1) / activeSteps.length) * 100);
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen bg-neutral-light-gray">
         <p className="text-brand-charcoal">Loading your profile...</p>
+      </div>
+    );
+  }
+
+  if (isSubmitted) {
+    return (
+      <div className="bg-neutral-light-gray min-h-screen py-20 flex items-center justify-center">
+        <ReviewScreen />
       </div>
     );
   }
@@ -103,7 +140,7 @@ const BecomeSitter = () => {
               />
             )}
           </Suspense>
-        </main>
+        main>
       </div>
     </div>
   );
