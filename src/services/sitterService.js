@@ -9,11 +9,11 @@ export const verifyMobileOtp = (phone_number, otp) => api.post('/auth/mobile/ver
 // --- Utils ---
 /**
  * Fetches address details from a postal code.
- * @param {string} postalCode The 10-digit postal code.
+ * @param {string} postal_code The 10-digit postal code.
  * @returns {Promise<Object>} The address data.
  */
-export const getAddressFromPostalCode = (postalCode) => {
-  return api.get(`/utils/address-from-postalcode?postal_code=${postalCode}`);
+export const getAddressFromPostalCode = (postal_code) => {
+  return api.post('/verification/postal-code', { postal_code });
 };
 
 // --- Sitter Profile Onboarding ---
