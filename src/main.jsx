@@ -3,9 +3,10 @@ import ReactDOM from 'react-dom/client'
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import App from './App.jsx'
 import './index.css'
-import "leaflet/dist/leaflet.css"; // <-- Add this line
+import "leaflet/dist/leaflet.css";
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { AuthProvider } from '@/context/AuthContext';
+import './i18n'; // Import the i18next configuration
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
