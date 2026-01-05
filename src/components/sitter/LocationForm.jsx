@@ -84,7 +84,6 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
       });
       if (!response.ok) throw new Error('Unable to geocode');
       const data = await response.json();
-      console.log("Nominatim Response:", data); // Log the full response for debugging
       if (data.address) {
         const { city, town, village, county, state, country } = data.address;
         setValue('city', city || town || village || county || state || '');
@@ -129,7 +128,8 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
 
   const handleLocateMe = () => {
     if (mapRef.current) {
-      mapRef.current.locate();
+      // Request high accuracy location
+      mapRef.current.locate({ enableHighAccuracy: true });
     }
   };
 
