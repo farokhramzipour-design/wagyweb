@@ -111,10 +111,14 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
     if (file) { setDocumentFile(file); clearErrors("government_id_image"); }
   };
 
+  const getFormattedPhoneNumber = () => {
+    return phoneNumber.startsWith('0') ? phoneNumber.substring(1) : phoneNumber;
+  };
+
   const handleSendOtp = async () => {
     setResendTimer(120);
     try {
-      await SitterService.requestMobileOtp(phoneNumber);
+      await SitterService.requestMobileOtp(getFormattedPhoneNumber());
       setOtpSent(true);
       addToast({ title: "OTP Sent", description: "An OTP has been sent to your phone." });
     } catch (error) {
@@ -125,7 +129,7 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
 
   const handleVerifyOtp = async () => {
     try {
-      await SitterService.verifySitterPhone(phoneNumber, otp);
+      await SitterService.verifySitterPhone(getFormattedPhoneNumber(), otp);
       setIsPhoneVerified(true);
       addToast({ title: "Success", description: "Phone number verified." });
     } catch (error) {
