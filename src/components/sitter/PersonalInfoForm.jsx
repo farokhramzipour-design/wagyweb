@@ -65,7 +65,7 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
       setIsFetchingAddress(true);
       try {
         const response = await SitterService.getAddressFromPostalCode(code);
-        const addressData = response.data.address; // Corrected path
+        const addressData = response.data.address;
         if (addressData) {
           const fullAddress = [
             addressData.province,
@@ -132,22 +132,22 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
     }
     setIsSubmitting(true);
     try {
-      let photoUrl = photoPreview;
+      let updatedProfile = { ...profileData };
+
       if (photoFile) {
         const photoRes = await SitterService.uploadProfilePhoto(photoFile);
-        photoUrl = photoRes.data.url;
+        updatedProfile = photoRes.data;
       }
       
-      let docUrl = profileData?.id_document;
       if (documentFile) {
         const docRes = await SitterService.uploadIdDocument(documentFile);
-        docUrl = docRes.data.url;
+        updatedProfile = docRes.data;
       }
 
-      if (!photoUrl) { setError("profile_photo", { type: "manual", message: "Profile photo is required." }); setIsSubmitting(false); return; }
-      if (!docUrl) { setError("id_document", { type: "manual", message: "ID document is required." }); setIsSubmitting(false); return; }
+      if (!updatedProfile.profile_photo) { setError("profile_photo", { type: "manual", message: "Profile photo is required." }); setIsSubmitting(false); return; }
+      if (!updatedProfile.id_document) { setError("id_document", { type: "manual", message: "ID document is required." }); setIsSubmitting(false); return; }
 
-      const finalData = { ...formData, profile_photo: photoUrl, id_document: docUrl };
+      const finalData = { ...formData, profile_photo: updatedProfile.profile_photo, id_document: updatedProfile.id_document };
       const response = await SitterService.updatePersonalInfo(finalData);
       onSave(response.data);
     } catch (err) {
