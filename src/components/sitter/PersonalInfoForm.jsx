@@ -65,8 +65,7 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
       setIsFetchingAddress(true);
       try {
         const response = await SitterService.getAddressFromPostalCode(code);
-        console.log("Full API Response:", response); // <-- DEBUGGING LINE
-        const addressData = response.data.address;
+        const addressData = response.data.address; // Corrected path
         if (addressData) {
           const fullAddress = [
             addressData.province,
