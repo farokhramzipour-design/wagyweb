@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import * as SitterService from '@/services/sitterService';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -45,35 +45,23 @@ const Checkbox = ({ name, value, label, register }) => (
     </label>
 );
 
-const MapUpdater = ({ setPosition }) => {
-  const map = useMapEvents({
+const MapEvents = ({ setPosition }) => {
+  useMapEvents({
     click(e) {
       setPosition(e.latlng);
-      map.flyTo(e.latlng, map.getZoom());
     },
     locationfound(e) {
       setPosition(e.latlng);
-      map.flyTo(e.latlng, 13);
     },
   });
   return null;
-};
-
-const DraggableMarker = ({ position, setPosition }) => {
-  const markerHandlers = useMemo(() => ({
-    dragend(e) {
-      setPosition(e.target.getLatLng());
-    },
-  }), [setPosition]);
-
-  return <Marker draggable={true} eventHandlers={markerHandlers} position={position} />;
 };
 
 const LocationForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mapPosition, setMapPosition] = useState({ lat: 40.7128, lng: -74.0060 });
-  const [mapInstance, setMapInstance] = useState(null);
+  const mapRef = useRef(null);
 
   const { register, handleSubmit, watch, formState: { errors }, setValue, reset } = useForm({
     resolver: zodResolver(locationSchema),
@@ -89,6 +77,9 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
       const lat = latitude || 40.7128;
       const lng = longitude || -74.0060;
       setMapPosition({ lat, lng });
+      if (mapRef.current) {
+        mapRef.current.flyTo({ lat, lng }, 13);
+      }
       reset({
         country: country || 'USA',
         city: city || '',
@@ -107,8 +98,8 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
   }, [mapPosition, setValue]);
 
   const handleLocateMe = () => {
-    if (mapInstance) {
-      mapInstance.locate();
+    if (mapRef.current) {
+      mapRef.current.locate();
     }
   };
 
@@ -140,12 +131,12 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="relative h-64 w-full rounded-lg overflow-hidden z-0">
-            <MapContainer center={mapPosition} zoom={13} style={{ height: '100%', width: '100%' }} whenCreated={setMapInstance}>
+            <MapContainer center={mapPosition} zoom={13} style={{ height: '100%', width: '100%' }} ref={mapRef}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
-              <DraggableMarker position={mapPosition} setPosition={setMapPosition} />
-              <MapUpdater setPosition={setMapPosition} />
+              <Marker draggable={true} position={mapPosition} eventHandlers={{ dragend: (e) => setMapPosition(e.target.getLatLng()) }} />
+              <MapEvents setPosition={setMapPosition} />
             </MapContainer>
-            <Button type="button" size="icon" className="absolute top-2 right-2 z-10 bg-white text-brand-charcoal hover:bg-neutral-light-gray" onClick={handleLocateMe}>
+            <Button type="button" size="icon" className="absolute top-3 right-3 z-[1000] bg-white text-brand-charcoal hover:bg-neutral-light-gray shadow-md" onClick={handleLocateMe}>
               <LocateFixed className="h-5 w-5" />
             </Button>
           </div>
