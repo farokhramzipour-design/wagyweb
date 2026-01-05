@@ -39,6 +39,7 @@ const Checkbox = ({ name, value, label, register }) => (
 const LocationForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMapScriptLoaded, setIsMapScriptLoaded] = useState(false);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -51,6 +52,17 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
     }
   });
 
+  useEffect(() => {
+    const checkMapir = () => {
+      if (window.mapir) {
+        setIsMapScriptLoaded(true);
+      } else {
+        setTimeout(checkMapir, 100);
+      }
+    };
+    checkMapir();
+  }, []);
+
   const reverseGeocode = useCallback(debounce(async (lat, lng) => {
     try {
       const response = await fetch(`https://map.ir/reverse/fast-reverse?lat=${lat}&lon=${lng}`, {
@@ -59,17 +71,19 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
       if (!response.ok) throw new Error('Unable to geocode');
       const data = await response.json();
       setValue('city', data.city || '');
-      setValue('country', data.country || 'Iran'); // Default to Iran if not provided
+      setValue('country', data.country || 'Iran');
     } catch (error) {
       addToast({ title: "Location Error", description: "Could not detect city and country.", variant: "destructive" });
     }
   }, 500), [setValue, addToast]);
 
   useEffect(() => {
+    if (!isMapScriptLoaded || !mapRef.current) return;
+
     const initialLat = profileData?.latitude || 35.715298;
     const initialLng = profileData?.longitude || 51.404343;
 
-    const map = new mapir.Map({
+    const map = new window.mapir.Map({
         container: mapRef.current,
         center: [initialLng, initialLat],
         zoom: 13,
@@ -77,7 +91,7 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
     });
     mapInstanceRef.current = map;
 
-    const marker = new mapir.Marker({
+    const marker = new window.mapir.Marker({
         map: map,
         position: [initialLng, initialLat],
         draggable: true,
@@ -104,9 +118,9 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
     }
 
     return () => {
-      map.remove();
+      if (map) map.remove();
     };
-  }, [profileData, reset, reverseGeocode, setValue]);
+  }, [isMapScriptLoaded, profileData, reset, reverseGeocode, setValue]);
 
   const handleLocateMe = () => {
     navigator.geolocation.getCurrentPosition((position) => {
@@ -151,8 +165,12 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="relative h-64 w-full rounded-lg overflow-hidden">
-            <div ref={mapRef} style={{ height: '100%', width: '100%' }}></div>
-            <Button type="button" size="icon" className="absolute top-3 right-3 z-10 bg-white text-brand-charcoal hover:bg-neutral-light-gray shadow-md" onClick={handleLocateMe}>
+            {isMapScriptLoaded ? (
+              <div ref={mapRef} style={{ height: '100%', width: '100%' }}></div>
+            ) : (
+              <div className="flex items-center justify-center h-full">Loading Map...</div>
+            )}
+            <Button type="button" size="icon" className="absolute top-3 right-3 z-10 bg-white text-brand-charcoal hover:bg-neutral-light-gray shadow-md" onClick={handleLocateMe} disabled={!isMapScriptLoaded}>
               <LocateFixed className="h-5 w-5" />
             </Button>
           </div>
