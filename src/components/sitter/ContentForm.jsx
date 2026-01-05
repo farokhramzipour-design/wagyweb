@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/Label';
 import { Textarea } from '@/components/ui/Textarea';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { useToast } from '@/hooks/use-toast';
-import { X } from 'lucide-react';
+import { X, UploadCloud } from 'lucide-react';
 
 const contentSchema = z.object({
   headline: z.string().min(10, "Headline must be at least 10 characters.").max(100, "Headline cannot exceed 100 characters."),
@@ -21,9 +21,9 @@ const ContentForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newPhotos, setNewPhotos] = useState([]); // Files to be uploaded
-  const [existingPhotos, setExistingPhotos] = useState(profileData?.content?.photo_gallery || []);
+  const [existingPhotos, setExistingPhotos] = useState([]);
 
-  const { register, handleSubmit, formState: { errors }, reset, setValue, getValues } = useForm({
+  const { register, handleSubmit, formState: { errors }, reset, setValue, getValues, trigger } = useForm({
     resolver: zodResolver(contentSchema),
     defaultValues: {
       headline: '',
@@ -33,16 +33,20 @@ const ContentForm = ({ profileData, onSave, onBack }) => {
   });
 
   useEffect(() => {
-    if (profileData?.content) {
-      reset(profileData.content);
-      setExistingPhotos(profileData.content.photo_gallery || []);
-    }
+    const gallery = profileData?.content?.photo_gallery || [];
+    setExistingPhotos(gallery);
+    reset({
+      headline: profileData?.content?.headline || '',
+      bio: profileData?.content?.bio || '',
+      photo_gallery: gallery,
+    });
   }, [profileData, reset]);
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length + existingPhotos.length + newPhotos.length > 10) {
-      addToast({ title: "Too many photos", description: "You can only upload a maximum of 10 photos.", variant: "destructive" });
+    const totalPhotos = files.length + existingPhotos.length + newPhotos.length;
+    if (totalPhotos > 10) {
+      addToast({ title: "Too many photos", description: `You can only add ${10 - (existingPhotos.length + newPhotos.length)} more photos.`, variant: "destructive" });
       return;
     }
     setNewPhotos(prev => [...prev, ...files]);
@@ -61,22 +65,22 @@ const ContentForm = ({ profileData, onSave, onBack }) => {
     try {
       let uploadedUrls = [];
       if (newPhotos.length > 0) {
-        const uploadPromises = newPhotos.map(file => SitterService.uploadGalleryPhoto(file));
-        const responses = await Promise.all(uploadPromises);
-        uploadedUrls = responses.map(res => res.data.url);
+        const response = await SitterService.uploadGalleryPhotos(newPhotos);
+        // Assuming the API returns an object with a `urls` array
+        uploadedUrls = response.data.urls || [];
       }
 
       const finalGallery = [...existingPhotos, ...uploadedUrls];
       setValue('photo_gallery', finalGallery);
-
-      // Manually trigger validation again after setting value
-      const isValid = await handleSubmit(() => {})();
-      if (!isValid) {
+      
+      // Re-validate the form with the final gallery
+      const result = await trigger();
+      if (!result) {
         setIsSubmitting(false);
         return;
       }
 
-      const dataToSave = { ...getValues(), photo_gallery: finalGallery };
+      const dataToSave = getValues();
       await SitterService.updateContent(dataToSave);
       onSave({ content: dataToSave });
 
@@ -93,7 +97,7 @@ const ContentForm = ({ profileData, onSave, onBack }) => {
       <Card className="border-neutral-gray shadow-md">
         <CardHeader>
           <CardTitle className="text-brand-charcoal">Profile Content</CardTitle>
-          <CardDescription>This is your chance to shine! Create a headline and bio that will stand out to pet owners.</CardDescription>
+          <CardDescription>This is your chance to shine! A great bio and friendly photos will help you stand out.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
@@ -108,27 +112,30 @@ const ContentForm = ({ profileData, onSave, onBack }) => {
           </div>
           <div className="space-y-2">
             <Label>Photo Gallery (1-10 photos)</Label>
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-4">
               {existingPhotos.map((url) => (
-                <div key={url} className="relative">
+                <div key={url} className="relative group">
                   <img src={url} alt="Gallery photo" className="w-full h-24 object-cover rounded-md" />
-                  <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => removeExistingPhoto(url)}>
+                  <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeExistingPhoto(url)}>
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
               ))}
               {newPhotos.map((file, index) => (
-                <div key={index} className="relative">
+                <div key={index} className="relative group">
                   <img src={URL.createObjectURL(file)} alt="New photo preview" className="w-full h-24 object-cover rounded-md" />
-                  <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => removeNewPhoto(index)}>
+                  <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeNewPhoto(index)}>
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
               ))}
-              <Label htmlFor="photo-upload" className="flex items-center justify-center w-full h-24 border-2 border-dashed rounded-md cursor-pointer hover:bg-neutral-light-gray">
-                <span>+ Add</span>
-                <Input id="photo-upload" type="file" multiple accept="image/*" className="hidden" onChange={handleFileChange} />
-              </Label>
+              {(existingPhotos.length + newPhotos.length) < 10 && (
+                <Label htmlFor="photo-upload" className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-md cursor-pointer hover:bg-neutral-light-gray text-gray-500">
+                  <UploadCloud className="h-8 w-8" />
+                  <span className="text-sm mt-1">Add Photos</span>
+                  <Input id="photo-upload" type="file" multiple accept="image/*" className="hidden" onChange={handleFileChange} />
+                </Label>
+              )}
             </div>
             {errors.photo_gallery && <p className="text-sm text-red-600 mt-2">{errors.photo_gallery.message}</p>}
           </div>

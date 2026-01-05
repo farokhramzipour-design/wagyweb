@@ -21,18 +21,25 @@ export const uploadProfilePhoto = async (file) => {
 };
 
 /**
- * Uploads a photo to the user's gallery.
- * @param {File} file The image file to upload.
- * @returns {Promise<Object>} The response containing the photo URL.
+ * Uploads multiple photos to the user's gallery.
+ * @param {File[]} files An array of image files to upload.
+ * @returns {Promise<Object>} The response containing the photo URLs.
  */
-export const uploadGalleryPhoto = async (file) => {
+export const uploadGalleryPhotos = async (files) => {
   const formData = new FormData();
-  formData.append('file', file);
-  const response = await api.post('/sitters/upload-gallery-photo', formData, { // Assuming this is the correct endpoint
+  files.forEach(file => {
+    formData.append('files', file);
+  });
+  
+  const response = await api.post('/sitters/upload-gallery-photos', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
-  if (response.data && response.data.url && response.data.url.startsWith('http://')) {
-    response.data.url = response.data.url.replace('http://', 'https://');
+
+  // Assuming the response returns a list of URLs, ensure they are all HTTPS
+  if (response.data && Array.isArray(response.data.urls)) {
+    response.data.urls = response.data.urls.map(url => 
+      url.startsWith('http://') ? url.replace('http://', 'https://') : url
+    );
   }
   return response;
 };
