@@ -3,26 +3,30 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useState, useEffect } from 'react';
 import * as SitterService from '@/services/sitterService';
-
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { useToast } from '@/hooks/use-toast';
+import { UploadCloud } from 'lucide-react';
 
 const personalInfoSchema = z.object({
-  full_name: z.string().min(2, "Full name must be at least 2 characters."),
-  date_of_birth: z.string().refine(val => new Date(val).toString() !== 'Invalid Date' && new Date().getFullYear() - new Date(val).getFullYear() >= 18, "You must be at least 18 years old."),
-  emergency_contact_name: z.string().min(2, "Emergency contact name is required."),
-  emergency_contact_phone: z.string().min(10, "Please enter a valid phone number."),
-  profile_photo: z.string().optional(),
+  full_name: z.string().min(2, "Full name is required."),
+  date_of_birth: z.string().refine(val => new Date(val) >= new Date('1900-01-01'), "Please enter a valid date of birth."),
+  phone_number: z.string().min(10, "A valid phone number is required."),
+  national_code: z.string().min(10, "National code must be 10 digits.").max(10, "National code must be 10 digits."),
+  postal_code: z.string().min(10, "Postal code must be 10 digits.").max(10, "Postal code must be 10 digits."),
+  id_document: z.string().min(1, "ID document is required."),
+  profile_photo: z.string().min(1, "Profile photo is required."),
+  emergency_contact_name: z.string().min(2, "Emergency contact is required."),
+  emergency_contact_phone: z.string().min(10, "A valid phone number is required."),
 });
 
 const Field = ({ name, label, register, error, ...props }) => (
     <div className="space-y-2">
         <Label htmlFor={name}>{label}</Label>
         <Input id={name} {...register(name)} {...props} />
-        {error && <p className="text-sm text-red-600">{error.message}</p>}
+        {error && <p className="text-sm text-red-600 mt-1">{error.message}</p>}
     </div>
 );
 
@@ -30,67 +34,92 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [photoFile, setPhotoFile] = useState(null);
+  const [documentFile, setDocumentFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [otpSent, setOtpSent] = useState(false);
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const [otp, setOtp] = useState('');
 
-  const { register, handleSubmit, formState: { errors }, setValue, reset } = useForm({
+  const { register, handleSubmit, formState: { errors }, setValue, reset, watch } = useForm({
     resolver: zodResolver(personalInfoSchema),
     defaultValues: {
-      full_name: '',
-      date_of_birth: '',
-      emergency_contact_name: '',
-      emergency_contact_phone: '',
-      profile_photo: '',
+      full_name: '', date_of_birth: '', phone_number: '', national_code: '',
+      postal_code: '', id_document: '', profile_photo: '',
+      emergency_contact_name: '', emergency_contact_phone: '',
     }
   });
+
+  const phoneNumber = watch('phone_number');
 
   useEffect(() => {
     if (profileData) {
       reset({
-        full_name: profileData.full_name || '',
+        ...profileData,
         date_of_birth: profileData.date_of_birth ? new Date(profileData.date_of_birth).toISOString().split('T')[0] : '',
-        emergency_contact_name: profileData.emergency_contact_name || '',
-        emergency_contact_phone: profileData.emergency_contact_phone || '',
-        profile_photo: profileData.profile_photo || '',
       });
       setPhotoPreview(profileData.profile_photo);
+      setIsPhoneVerified(profileData.is_phone_verified || false);
     }
   }, [profileData, reset]);
 
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
-    if (file && file.type.startsWith('image/')) {
+    if (file) {
       setPhotoFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => setPhotoPreview(reader.result);
-      reader.readAsDataURL(file);
-    } else {
-      addToast({ title: "Invalid File", description: "Please select a valid image file.", variant: "destructive" });
+      setPhotoPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleDocumentChange = (e) => {
+    setDocumentFile(e.target.files[0]);
+  };
+
+  const handleSendOtp = async () => {
+    try {
+      await SitterService.requestMobileOtp(phoneNumber);
+      setOtpSent(true);
+      addToast({ title: "OTP Sent", description: "An OTP has been sent to your phone." });
+    } catch (error) {
+      addToast({ title: "Error", description: "Could not send OTP. Please check the phone number.", variant: "destructive" });
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    try {
+      await SitterService.verifyMobileOtp(phoneNumber, otp);
+      setIsPhoneVerified(true);
+      addToast({ title: "Success", description: "Your phone number has been verified." });
+    } catch (error) {
+      addToast({ title: "Verification Failed", description: "The OTP is incorrect. Please try again.", variant: "destructive" });
     }
   };
 
   const onSubmit = async (formData) => {
+    if (!isPhoneVerified) {
+      addToast({ title: "Verification Required", description: "Please verify your phone number before continuing.", variant: "destructive" });
+      return;
+    }
     setIsSubmitting(true);
     try {
       let photoUrl = photoPreview;
-
       if (photoFile) {
-        const uploadResponse = await SitterService.uploadProfilePhoto(photoFile);
-        photoUrl = uploadResponse.data.url;
+        const photoRes = await SitterService.uploadProfilePhoto(photoFile);
+        photoUrl = photoRes.data.url;
       }
-      
-      if (!photoUrl) {
-        addToast({ title: "Photo Required", description: "Please upload a profile photo.", variant: "destructive" });
-        setIsSubmitting(false);
-        return;
-      }
+      setValue('profile_photo', photoUrl);
 
-      const finalData = { ...formData, profile_photo: photoUrl };
-      await SitterService.updatePersonalInfo(finalData);
-      
-      onSave(finalData);
+      let docUrl = formData.id_document;
+      if (documentFile) {
+        const docRes = await SitterService.uploadIdDocument(documentFile);
+        docUrl = docRes.data.url;
+      }
+      setValue('id_document', docUrl);
+
+      const finalData = { ...formData, profile_photo: photoUrl, id_document: docUrl };
+      const response = await SitterService.updatePersonalInfo(finalData);
+      onSave(response.data);
     } catch (err) {
-      const errorMessage = err.response?.data?.message || err.message || "An unexpected error occurred.";
-      addToast({ title: "Save Failed", description: errorMessage, variant: "destructive" });
+      addToast({ title: "Save Failed", description: err.response?.data?.message || "An unexpected error occurred.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -100,33 +129,69 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
     <form onSubmit={handleSubmit(onSubmit)}>
       <Card className="border-neutral-gray shadow-md">
         <CardHeader>
-          <CardTitle>Personal Information</CardTitle>
-          <CardDescription>Tell us a bit about yourself. This information will be used to build your sitter profile.</CardDescription>
+          <CardTitle>Personal Information & Verification</CardTitle>
+          <CardDescription>This information is for verification and will not be shared publicly.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="p-4 bg-neutral-light-gray rounded-lg">
-            <Label>Profile Photo <span className="text-red-500">*</span></Label>
-            <p className="text-sm text-gray-500 mt-1">A clear, friendly photo builds trust.</p>
-            <div className="flex items-center gap-4 mt-2">
-              <img 
-                src={photoPreview || 'https://via.placeholder.com/96'} 
-                alt="Profile Preview" 
-                className="h-24 w-24 rounded-full object-cover bg-gray-200"
-              />
-              <Input id="photo" type="file" accept="image/png, image/jpeg" onChange={handlePhotoChange} className="max-w-xs"/>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Field name="full_name" label="Full Name" register={register} error={errors.full_name} />
+            <Field name="date_of_birth" label="Date of Birth" type="date" register={register} error={errors.date_of_birth} />
+            <Field name="national_code" label="National Code" register={register} error={errors.national_code} />
+            <Field name="postal_code" label="Postal Code" register={register} error={errors.postal_code} />
           </div>
           
+          <div className="space-y-2">
+            <Label>Phone Number Verification</Label>
+            <div className="flex gap-2">
+              <Input {...register('phone_number')} placeholder="e.g., 09123456789" disabled={isPhoneVerified || otpSent} />
+              {!isPhoneVerified && (
+                <Button type="button" onClick={handleSendOtp} disabled={otpSent}>
+                  {otpSent ? 'OTP Sent' : 'Send OTP'}
+                </Button>
+              )}
+            </div>
+            {errors.phone_number && <p className="text-sm text-red-600">{errors.phone_number.message}</p>}
+            {isPhoneVerified && <p className="text-sm text-green-600">Phone number verified!</p>}
+          </div>
+
+          {otpSent && !isPhoneVerified && (
+            <div className="space-y-2">
+              <Label>Enter OTP</Label>
+              <div className="flex gap-2">
+                <Input value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="6-digit code" />
+                <Button type="button" onClick={handleVerifyOtp}>Verify</Button>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+            <div className="space-y-2">
+              <Label>Profile Photo</Label>
+              <div className="flex items-center gap-4">
+                <img src={photoPreview || 'https://via.placeholder.com/96'} alt="Preview" className="h-24 w-24 rounded-full object-cover bg-gray-200" />
+                <Input id="photo" type="file" accept="image/*" onChange={handlePhotoChange} className="max-w-xs" />
+              </div>
+              {errors.profile_photo && <p className="text-sm text-red-600">{errors.profile_photo.message}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label>ID Document (National ID Card)</Label>
+              <Label htmlFor="document-upload" className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-md cursor-pointer hover:bg-neutral-light-gray">
+                <UploadCloud className="h-8 w-8 text-gray-500" />
+                <span className="text-sm text-gray-600">{documentFile ? documentFile.name : 'Click to upload'}</span>
+              </Label>
+              <Input id="document-upload" type="file" accept="image/*,application/pdf" onChange={handleDocumentChange} className="hidden" />
+              {errors.id_document && <p className="text-sm text-red-600">{errors.id_document.message}</p>}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Field name="full_name" label="Full Name" register={register} error={errors.full_name} placeholder="e.g., Jane Doe" />
-            <Field name="date_of_birth" label="Date of Birth" type="date" register={register} error={errors.date_of_birth} />
-            <Field name="emergency_contact_name" label="Emergency Contact Name" register={register} error={errors.emergency_contact_name} placeholder="e.g., John Smith" />
-            <Field name="emergency_contact_phone" label="Emergency Contact Phone" type="tel" register={register} error={errors.emergency_contact_phone} placeholder="(555) 123-4567" />
+            <Field name="emergency_contact_name" label="Emergency Contact Name" register={register} error={errors.emergency_contact_name} />
+            <Field name="emergency_contact_phone" label="Emergency Contact Phone" register={register} error={errors.emergency_contact_phone} />
           </div>
         </CardContent>
         <CardFooter className="flex justify-between bg-neutral-light-gray p-4 rounded-b-lg">
-           <Button type="button" variant="ghost" onClick={onBack} disabled={true}>Back</Button>
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="button" variant="ghost" onClick={onBack} disabled={true}>Back</Button>
+          <Button type="submit" disabled={isSubmitting || !isPhoneVerified}>
             {isSubmitting ? 'Saving...' : 'Save & Continue'}
           </Button>
         </CardFooter>
