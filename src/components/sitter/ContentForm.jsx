@@ -11,24 +11,23 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { useToast } from '@/hooks/use-toast';
 import { X, UploadCloud } from 'lucide-react';
 
+// Validation for headline and bio only. Gallery is validated manually.
 const contentSchema = z.object({
   headline: z.string().min(10, "Headline must be at least 10 characters.").max(100, "Headline cannot exceed 100 characters."),
   bio: z.string().min(50, "Bio must be at least 50 characters.").max(2000, "Bio cannot exceed 2000 characters."),
-  photo_gallery: z.array(z.string()).min(1, "Please upload at least one photo.").max(10, "You can upload a maximum of 10 photos."),
 });
 
 const ContentForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [newPhotos, setNewPhotos] = useState([]); // Files to be uploaded
+  const [newPhotos, setNewPhotos] = useState([]);
   const [existingPhotos, setExistingPhotos] = useState([]);
 
-  const { register, handleSubmit, formState: { errors }, reset, setValue, getValues, trigger } = useForm({
+  const { register, handleSubmit, formState: { errors }, reset, getValues, setError, clearErrors } = useForm({
     resolver: zodResolver(contentSchema),
     defaultValues: {
       headline: '',
       bio: '',
-      photo_gallery: [],
     }
   });
 
@@ -38,7 +37,6 @@ const ContentForm = ({ profileData, onSave, onBack }) => {
     reset({
       headline: profileData?.content?.headline || '',
       bio: profileData?.content?.bio || '',
-      photo_gallery: gallery,
     });
   }, [profileData, reset]);
 
@@ -50,6 +48,7 @@ const ContentForm = ({ profileData, onSave, onBack }) => {
       return;
     }
     setNewPhotos(prev => [...prev, ...files]);
+    clearErrors("photo_gallery"); // Clear error when user adds new photos
   };
 
   const removeNewPhoto = (index) => {
@@ -66,21 +65,24 @@ const ContentForm = ({ profileData, onSave, onBack }) => {
       let uploadedUrls = [];
       if (newPhotos.length > 0) {
         const response = await SitterService.uploadGalleryPhotos(newPhotos);
-        // Assuming the API returns an object with a `urls` array
         uploadedUrls = response.data.urls || [];
       }
 
       const finalGallery = [...existingPhotos, ...uploadedUrls];
-      setValue('photo_gallery', finalGallery);
-      
-      // Re-validate the form with the final gallery
-      const result = await trigger();
-      if (!result) {
+
+      // Manual validation for the photo gallery
+      if (finalGallery.length < 1) {
+        setError("photo_gallery", { type: "manual", message: "Please upload at least one photo." });
+        setIsSubmitting(false);
+        return;
+      }
+      if (finalGallery.length > 10) {
+        setError("photo_gallery", { type: "manual", message: "You can upload a maximum of 10 photos." });
         setIsSubmitting(false);
         return;
       }
 
-      const dataToSave = getValues();
+      const dataToSave = { ...formData, photo_gallery: finalGallery };
       await SitterService.updateContent(dataToSave);
       onSave({ content: dataToSave });
 
@@ -96,7 +98,7 @@ const ContentForm = ({ profileData, onSave, onBack }) => {
     <form onSubmit={handleSubmit(onSubmit)}>
       <Card className="border-neutral-gray shadow-md">
         <CardHeader>
-          <CardTitle className="text-brand-charcoal">Profile Content</CardTitle>
+          <CardTitle>Profile Content</CardTitle>
           <CardDescription>This is your chance to shine! A great bio and friendly photos will help you stand out.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
