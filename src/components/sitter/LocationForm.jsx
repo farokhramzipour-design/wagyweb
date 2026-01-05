@@ -1,10 +1,8 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import * as SitterService from '@/services/sitterService';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -12,14 +10,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { useToast } from '@/hooks/use-toast';
 import { LocateFixed } from 'lucide-react';
 import { debounce } from 'lodash';
-
-// Fix for default Leaflet icon issue
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
 
 const locationSchema = z.object({
   country: z.string().min(2, "Country is required."),
@@ -46,91 +36,91 @@ const Checkbox = ({ name, value, label, register }) => (
     </label>
 );
 
-const MapEvents = ({ onLocationChange }) => {
-  useMapEvents({
-    click(e) {
-      onLocationChange(e.latlng);
-    },
-    locationfound(e) {
-      onLocationChange(e.latlng);
-    },
-    dragend(e) {
-      onLocationChange(e.target.getLatLng());
-    }
-  });
-  return null;
-};
-
 const LocationForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [mapPosition, setMapPosition] = useState({ lat: 40.7128, lng: -74.0060 });
   const mapRef = useRef(null);
+  const markerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
 
   const { register, handleSubmit, watch, formState: { errors }, setValue, reset } = useForm({
     resolver: zodResolver(locationSchema),
     defaultValues: {
-      country: 'USA', city: '', latitude: 40.7128, longitude: -74.0060,
+      country: '', city: '', latitude: 35.715298, longitude: 51.404343,
       service_radius_km: 10, available_days: [], available_time_slots: [],
     }
   });
 
   const reverseGeocode = useCallback(debounce(async (lat, lng) => {
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=en`, {
-        headers: {
-          'User-Agent': 'WagyWebApp/1.0 (behnam.z.web@gmail.com)'
-        }
+      const response = await fetch(`https://map.ir/reverse/fast-reverse?lat=${lat}&lon=${lng}`, {
+        headers: { 'x-api-key': process.env.VITE_MAP_IR_API_KEY }
       });
       if (!response.ok) throw new Error('Unable to geocode');
       const data = await response.json();
-      if (data.address) {
-        const { city, town, village, county, state, country } = data.address;
-        setValue('city', city || town || village || county || state || '');
-        setValue('country', country || '');
-      }
+      setValue('city', data.city || '');
+      setValue('country', data.country || 'Iran'); // Default to Iran if not provided
     } catch (error) {
-      console.error("Reverse geocoding failed:", error);
-      addToast({ title: "Location Error", description: "Could not automatically detect city and country.", variant: "destructive" });
+      addToast({ title: "Location Error", description: "Could not detect city and country.", variant: "destructive" });
     }
   }, 500), [setValue, addToast]);
 
   useEffect(() => {
+    const initialLat = profileData?.latitude || 35.715298;
+    const initialLng = profileData?.longitude || 51.404343;
+
+    const map = new mapir.Map({
+        container: mapRef.current,
+        center: [initialLng, initialLat],
+        zoom: 13,
+        apiKey: process.env.VITE_MAP_IR_API_KEY,
+    });
+    mapInstanceRef.current = map;
+
+    const marker = new mapir.Marker({
+        map: map,
+        position: [initialLng, initialLat],
+        draggable: true,
+    });
+    markerRef.current = marker;
+
+    marker.on('dragend', () => {
+        const { lng, lat } = marker.getPosition();
+        setValue('longitude', lng);
+        setValue('latitude', lat);
+        reverseGeocode(lat, lng);
+    });
+    
     if (profileData) {
-      const { country, city, latitude, longitude, service_radius_km, available_days, available_time_slots } = profileData;
-      const lat = latitude || 40.7128;
-      const lng = longitude || -74.0060;
-      setMapPosition({ lat, lng });
-      if (mapRef.current) {
-        mapRef.current.flyTo({ lat, lng }, 13);
-      }
       reset({
-        country: country || 'USA',
-        city: city || '',
-        latitude: lat,
-        longitude: lng,
-        service_radius_km: service_radius_km || 10,
-        available_days: available_days || [],
-        available_time_slots: available_time_slots ? Object.keys(available_time_slots) : [],
+        country: profileData.country || '',
+        city: profileData.city || '',
+        latitude: initialLat,
+        longitude: initialLng,
+        service_radius_km: profileData.service_radius_km || 10,
+        available_days: profileData.available_days || [],
+        available_time_slots: profileData.available_time_slots ? Object.keys(profileData.available_time_slots) : [],
       });
     }
-  }, [profileData, reset]);
 
-  const handleLocationChange = (latlng) => {
-    setMapPosition(latlng);
-    setValue('latitude', latlng.lat);
-    setValue('longitude', latlng.lng);
-    reverseGeocode(latlng.lat, latlng.lng);
-    if (mapRef.current) {
-      mapRef.current.flyTo(latlng, mapRef.current.getZoom());
-    }
-  };
+    return () => {
+      map.remove();
+    };
+  }, [profileData, reset, reverseGeocode, setValue]);
 
   const handleLocateMe = () => {
-    if (mapRef.current) {
-      // Request high accuracy location
-      mapRef.current.locate({ enableHighAccuracy: true });
-    }
+    navigator.geolocation.getCurrentPosition((position) => {
+      const { latitude, longitude } = position.coords;
+      if (mapInstanceRef.current && markerRef.current) {
+        mapInstanceRef.current.flyTo([longitude, latitude], 14);
+        markerRef.current.setPosition([longitude, latitude]);
+        setValue('longitude', longitude);
+        setValue('latitude', latitude);
+        reverseGeocode(latitude, longitude);
+      }
+    }, (error) => {
+      addToast({ title: "Geolocation Error", description: error.message, variant: "destructive" });
+    }, { enableHighAccuracy: true });
   };
 
   const onSubmit = async (formData) => {
@@ -160,19 +150,15 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
           <CardDescription>Set your service area. Drag the pin or use your current location.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="relative h-64 w-full rounded-lg overflow-hidden z-0">
-            <MapContainer center={mapPosition} zoom={13} style={{ height: '100%', width: '100%' }} ref={mapRef}>
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
-              <Marker draggable={true} position={mapPosition} eventHandlers={{ dragend: (e) => handleLocationChange(e.target.getLatLng()) }} />
-              <MapEvents onLocationChange={handleLocationChange} />
-            </MapContainer>
-            <Button type="button" size="icon" className="absolute top-3 right-3 z-[1000] bg-white text-brand-charcoal hover:bg-neutral-light-gray shadow-md" onClick={handleLocateMe}>
+          <div className="relative h-64 w-full rounded-lg overflow-hidden">
+            <div ref={mapRef} style={{ height: '100%', width: '100%' }}></div>
+            <Button type="button" size="icon" className="absolute top-3 right-3 z-10 bg-white text-brand-charcoal hover:bg-neutral-light-gray shadow-md" onClick={handleLocateMe}>
               <LocateFixed className="h-5 w-5" />
             </Button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Field name="country" label="Country" register={register} error={errors.country} />
-            <Field name="city" label="City" register={register} error={errors.city} placeholder="e.g., New York" />
+            <Field name="city" label="City" register={register} error={errors.city} placeholder="e.g., Tehran" />
           </div>
           <div className="space-y-2">
             <Label>Service Radius: {watch('service_radius_km')} km</Label>
