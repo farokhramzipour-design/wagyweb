@@ -61,24 +61,38 @@ const ContentForm = ({ profileData, onSave, onBack }) => {
 
   const onSubmit = async (formData) => {
     setIsSubmitting(true);
+    clearErrors("photo_gallery");
+
     try {
-      let uploadedUrls = [];
+      let finalGallery = [...existingPhotos];
+      let updatedProfile = null;
+
+      // 1. If new photos exist, upload them. The API returns the full updated profile.
       if (newPhotos.length > 0) {
         const response = await SitterService.uploadGalleryPhotos(newPhotos);
-        uploadedUrls = response.data.urls || [];
+        updatedProfile = response.data;
+        finalGallery = updatedProfile.photo_gallery || [];
       }
 
-      const finalGallery = [...existingPhotos, ...uploadedUrls];
-
+      // 2. Manually validate the gallery count.
       if (finalGallery.length < 1 || finalGallery.length > 10) {
         setError("photo_gallery", { type: "manual", message: "Please provide between 1 and 10 photos." });
         setIsSubmitting(false);
         return;
       }
 
-      const dataToSave = { ...formData, photo_gallery: finalGallery };
-      await SitterService.updateContent(dataToSave);
-      onSave({ content: dataToSave });
+      // 3. Prepare the final data and save it.
+      const dataToSave = {
+        headline: formData.headline,
+        bio: formData.bio,
+        photo_gallery: finalGallery,
+      };
+
+      // If we already got an updated profile from the upload, we might not need to call updateContent again
+      // unless the text fields were also changed. Calling it again is safer to ensure all data is synced.
+      const finalResponse = await SitterService.updateContent(dataToSave);
+
+      onSave({ content: finalResponse.data });
 
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message || "An unexpected error occurred.";
