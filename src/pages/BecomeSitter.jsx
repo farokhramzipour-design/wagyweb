@@ -140,7 +140,7 @@ const BecomeSitter = () => {
               />
             )}
           </Suspense>
-        main>
+        </main>
       </div>
     </div>
   );
