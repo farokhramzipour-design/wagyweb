@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import * as SitterService from '@/services/sitterService';
 
 import { Button } from '@/components/ui/Button';
@@ -10,39 +10,51 @@ import { Label } from '@/components/ui/Label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { useToast } from '@/hooks/use-toast';
 
-// Schema for validation
 const personalInfoSchema = z.object({
   full_name: z.string().min(2, "Full name must be at least 2 characters."),
   date_of_birth: z.string().refine(val => new Date(val).toString() !== 'Invalid Date' && new Date().getFullYear() - new Date(val).getFullYear() >= 18, "You must be at least 18 years old."),
   emergency_contact_name: z.string().min(2, "Emergency contact name is required."),
   emergency_contact_phone: z.string().min(10, "Please enter a valid phone number."),
-  profile_photo: z.string().optional(), // URL will be stored here
+  profile_photo: z.string().optional(),
 });
 
 const Field = ({ name, label, register, error, ...props }) => (
     <div className="space-y-2">
-        <Label htmlFor={name} className="text-brand-charcoal">{label}</Label>
+        <Label htmlFor={name}>{label}</Label>
         <Input id={name} {...register(name)} {...props} />
         {error && <p className="text-sm text-red-600">{error.message}</p>}
     </div>
 );
 
-const PersonalInfoForm = ({ profileData, onSave }) => {
+const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [photoFile, setPhotoFile] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState(profileData?.profile_photo || null);
+  const [photoPreview, setPhotoPreview] = useState(null);
 
-  const { register, handleSubmit, formState: { errors }, setValue } = useForm({
+  const { register, handleSubmit, formState: { errors }, setValue, reset } = useForm({
     resolver: zodResolver(personalInfoSchema),
     defaultValues: {
-      full_name: profileData?.full_name || '',
-      date_of_birth: profileData?.date_of_birth ? new Date(profileData.date_of_birth).toISOString().split('T')[0] : '',
-      emergency_contact_name: profileData?.emergency_contact_name || '',
-      emergency_contact_phone: profileData?.emergency_contact_phone || '',
-      profile_photo: profileData?.profile_photo || '',
+      full_name: '',
+      date_of_birth: '',
+      emergency_contact_name: '',
+      emergency_contact_phone: '',
+      profile_photo: '',
     }
   });
+
+  useEffect(() => {
+    if (profileData) {
+      reset({
+        full_name: profileData.full_name || '',
+        date_of_birth: profileData.date_of_birth ? new Date(profileData.date_of_birth).toISOString().split('T')[0] : '',
+        emergency_contact_name: profileData.emergency_contact_name || '',
+        emergency_contact_phone: profileData.emergency_contact_phone || '',
+        profile_photo: profileData.profile_photo || '',
+      });
+      setPhotoPreview(profileData.profile_photo);
+    }
+  }, [profileData, reset]);
 
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
@@ -59,13 +71,11 @@ const PersonalInfoForm = ({ profileData, onSave }) => {
   const onSubmit = async (formData) => {
     setIsSubmitting(true);
     try {
-      let photoUrl = profileData?.profile_photo;
+      let photoUrl = photoPreview;
 
       if (photoFile) {
         const uploadResponse = await SitterService.uploadProfilePhoto(photoFile);
-        console.log('API Upload Response:', uploadResponse); // <-- DEBUGGING LINE
         photoUrl = uploadResponse.data.url;
-        setValue('profile_photo', photoUrl);
       }
       
       if (!photoUrl) {
@@ -90,18 +100,18 @@ const PersonalInfoForm = ({ profileData, onSave }) => {
     <form onSubmit={handleSubmit(onSubmit)}>
       <Card className="border-neutral-gray shadow-md">
         <CardHeader>
-          <CardTitle className="text-brand-charcoal">Personal Information</CardTitle>
+          <CardTitle>Personal Information</CardTitle>
           <CardDescription>Tell us a bit about yourself. This information will be used to build your sitter profile.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="p-4 bg-neutral-light-gray rounded-lg">
-            <Label className="text-brand-charcoal">Profile Photo <span className="text-red-500">*</span></Label>
-            <p className="text-sm text-gray-600 mt-1">Pet parents love seeing who you are! A clear, friendly photo builds trust.</p>
-            <div className="flex items-center gap-4 mt-3">
+            <Label>Profile Photo <span className="text-red-500">*</span></Label>
+            <p className="text-sm text-gray-500 mt-1">A clear, friendly photo builds trust.</p>
+            <div className="flex items-center gap-4 mt-2">
               <img 
                 src={photoPreview || 'https://via.placeholder.com/96'} 
                 alt="Profile Preview" 
-                className="h-24 w-24 rounded-full object-cover bg-neutral-gray"
+                className="h-24 w-24 rounded-full object-cover bg-gray-200"
               />
               <Input id="photo" type="file" accept="image/png, image/jpeg" onChange={handlePhotoChange} className="max-w-xs"/>
             </div>
@@ -114,8 +124,9 @@ const PersonalInfoForm = ({ profileData, onSave }) => {
             <Field name="emergency_contact_phone" label="Emergency Contact Phone" type="tel" register={register} error={errors.emergency_contact_phone} placeholder="(555) 123-4567" />
           </div>
         </CardContent>
-        <CardFooter className="flex justify-end bg-neutral-light-gray p-4 rounded-b-lg">
-          <Button type="submit" disabled={isSubmitting} className="bg-brand-green hover:bg-opacity-90 text-white">
+        <CardFooter className="flex justify-between bg-neutral-light-gray p-4 rounded-b-lg">
+           <Button type="button" variant="ghost" onClick={onBack} disabled={true}>Back</Button>
+          <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Saving...' : 'Save & Continue'}
           </Button>
         </CardFooter>

@@ -1,4 +1,4 @@
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useState, useMemo, useEffect } from 'react';
@@ -32,7 +32,7 @@ const locationSchema = z.object({
 
 const Field = ({ name, label, register, error, ...props }) => (
     <div className="space-y-2">
-        <Label htmlFor={name} className="text-brand-charcoal">{label}</Label>
+        <Label htmlFor={name}>{label}</Label>
         <Input id={name} {...register(name)} {...props} />
         {error && <p className="text-sm text-red-600">{error.message}</p>}
     </div>
@@ -65,23 +65,38 @@ const DraggableMarker = ({ position, setPosition }) => {
 const LocationForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [mapPosition, setMapPosition] = useState({ 
-    lat: profileData?.location?.latitude || 40.7128, 
-    lng: profileData?.location?.longitude || -74.0060 
-  });
+  const [mapPosition, setMapPosition] = useState({ lat: 40.7128, lng: -74.0060 });
 
-  const { register, handleSubmit, watch, formState: { errors }, setValue } = useForm({
+  const { register, handleSubmit, watch, formState: { errors }, setValue, reset } = useForm({
     resolver: zodResolver(locationSchema),
     defaultValues: {
-      country: profileData?.location?.country || 'USA',
-      city: profileData?.location?.city || '',
-      latitude: mapPosition.lat,
-      longitude: mapPosition.lng,
-      service_radius_km: profileData?.location?.service_radius_km || 10,
-      available_days: profileData?.location?.available_days || [],
-      available_time_slots: profileData?.location?.available_time_slots ? Object.keys(profileData.location.available_time_slots) : [],
+      country: 'USA',
+      city: '',
+      latitude: 40.7128,
+      longitude: -74.0060,
+      service_radius_km: 10,
+      available_days: [],
+      available_time_slots: [],
     }
   });
+
+  useEffect(() => {
+    if (profileData) {
+      const location = profileData.location || {};
+      const lat = location.latitude || 40.7128;
+      const lng = location.longitude || -74.0060;
+      setMapPosition({ lat, lng });
+      reset({
+        country: location.country || 'USA',
+        city: location.city || '',
+        latitude: lat,
+        longitude: lng,
+        service_radius_km: location.service_radius_km || 10,
+        available_days: location.available_days || [],
+        available_time_slots: location.available_time_slots ? Object.keys(location.available_time_slots) : [],
+      });
+    }
+  }, [profileData, reset]);
 
   useEffect(() => {
     setValue('latitude', mapPosition.lat);
@@ -95,7 +110,6 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
   const onSubmit = async (formData) => {
     setIsSubmitting(true);
     try {
-      // Transform time slots array to an object
       const timeSlotsObject = formData.available_time_slots.reduce((acc, slot) => {
         acc[slot] = true;
         return acc;
@@ -104,7 +118,7 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
       const dataToSave = { 
         ...formData, 
         available_time_slots: timeSlotsObject,
-        blackout_dates: [], // Add required blackout_dates field
+        blackout_dates: [],
         availability_type: 'part_time' 
       };
 
@@ -122,7 +136,7 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
     <form onSubmit={handleSubmit(onSubmit)}>
       <Card className="border-neutral-gray shadow-md">
         <CardHeader>
-          <CardTitle className="text-brand-charcoal">Location & Availability</CardTitle>
+          <CardTitle>Location & Availability</CardTitle>
           <CardDescription>Set your service area and schedule. Drag the pin to your approximate location.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -140,19 +154,19 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
             <Field name="city" label="City" register={register} error={errors.city} placeholder="e.g., New York" />
           </div>
           <div className="space-y-2">
-            <Label className="text-brand-charcoal">Service Radius: {radius} km</Label>
+            <Label>Service Radius: {radius} km</Label>
             <Input type="range" min="1" max="100" {...register('service_radius_km')} />
             {errors.service_radius_km && <p className="text-sm text-red-600">{errors.service_radius_km.message}</p>}
           </div>
           <div className="space-y-3">
-            <Label className="text-brand-charcoal">Available Days</Label>
+            <Label>Available Days</Label>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
               {weekDays.map(day => <Checkbox key={day} name="available_days" value={day} label={day.charAt(0).toUpperCase() + day.slice(1)} register={register} />)}
             </div>
             {errors.available_days && <p className="text-sm text-red-600 mt-2">{errors.available_days.message}</p>}
           </div>
           <div className="space-y-3">
-            <Label className="text-brand-charcoal">Available Time Slots</Label>
+            <Label>Available Time Slots</Label>
             <div className="grid grid-cols-3 gap-3">
               {timeSlots.map(slot => <Checkbox key={slot} name="available_time_slots" value={slot} label={slot.charAt(0).toUpperCase() + slot.slice(1)} register={register} />)}
             </div>
@@ -161,7 +175,7 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
         </CardContent>
         <CardFooter className="flex justify-between bg-neutral-light-gray p-4 rounded-b-lg">
           <Button type="button" variant="ghost" onClick={onBack}>Back</Button>
-          <Button type="submit" disabled={isSubmitting} className="bg-brand-green hover:bg-opacity-90 text-white">
+          <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Saving...' : 'Save & Continue'}
           </Button>
         </CardFooter>
