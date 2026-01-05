@@ -65,7 +65,7 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
       setIsFetchingAddress(true);
       try {
         const response = await SitterService.getAddressFromPostalCode(code);
-        const addressData = response.data.response_body.data.address;
+        const addressData = response.data.address;
         if (addressData) {
           const fullAddress = [
             addressData.province,
@@ -77,7 +77,7 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
             `Number: ${addressData.number}`,
             `Floor: ${addressData.floor}`,
             `Side Floor: ${addressData.side_floor}`
-          ].filter(part => part && part.trim() !== '' && !part.includes('-')).join(', ');
+          ].filter(part => part && part.trim() !== '' && !part.includes('null')).join(', ');
           setValue('address', fullAddress);
           clearErrors('address');
         } else {
