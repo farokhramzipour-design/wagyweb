@@ -134,15 +134,18 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
     try {
       let photoUrl = profileData?.profile_photo || null;
       let docUrl = profileData?.government_id_image || null;
-
+      console.log("Photo URL after upload:", photoUrl);
+      console.log("Doc URL after upload:", docUrl); // <-- DEBUGGING LINE
       if (photoFile) {
         const photoRes = await SitterService.uploadProfilePhoto(photoFile);
         photoUrl = photoRes.data.profile_photo;
+        console.log("Photo URL after upload:", photoUrl); // <-- DEBUGGING LINE
       }
       
       if (documentFile) {
         const docRes = await SitterService.uploadIdDocument(documentFile);
         docUrl = docRes.data.government_id_image;
+        console.log("Doc URL after upload:", docUrl); // <-- DEBUGGING LINE
       }
 
       if (!photoUrl) {
