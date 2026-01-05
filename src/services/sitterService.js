@@ -20,11 +20,6 @@ export const uploadProfilePhoto = async (file) => {
   return response;
 };
 
-/**
- * Uploads multiple photos to the user's gallery.
- * @param {File[]} files An array of image files to upload.
- * @returns {Promise<Object>} The response containing the photo URLs.
- */
 export const uploadGalleryPhotos = async (files) => {
   const formData = new FormData();
   files.forEach(file => {
@@ -35,13 +30,21 @@ export const uploadGalleryPhotos = async (files) => {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 
-  // Assuming the response returns a list of URLs, ensure they are all HTTPS
   if (response.data && Array.isArray(response.data.urls)) {
     response.data.urls = response.data.urls.map(url => 
       url.startsWith('http://') ? url.replace('http://', 'https://') : url
     );
   }
   return response;
+};
+
+/**
+ * Deletes photos from the user's gallery.
+ * @param {string[]} photos An array of photo URLs to delete.
+ * @returns {Promise<Object>} The API response.
+ */
+export const deleteGalleryPhotos = (photos) => {
+  return api.post('/sitters/delete-gallery-photos', { photos });
 };
 
 export const updatePersonalInfo = (data) => api.patch('/sitters/personal-info', data);
