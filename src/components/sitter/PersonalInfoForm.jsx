@@ -132,22 +132,22 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
     }
     setIsSubmitting(true);
     try {
-      let updatedProfile = { ...profileData };
+      let currentProfileState = { ...profileData };
 
       if (photoFile) {
         const photoRes = await SitterService.uploadProfilePhoto(photoFile);
-        updatedProfile = photoRes.data;
+        currentProfileState = photoRes.data;
       }
       
       if (documentFile) {
         const docRes = await SitterService.uploadIdDocument(documentFile);
-        updatedProfile = docRes.data;
+        currentProfileState = docRes.data;
       }
 
-      if (!updatedProfile.profile_photo) { setError("profile_photo", { type: "manual", message: "Profile photo is required." }); setIsSubmitting(false); return; }
-      if (!updatedProfile.id_document) { setError("id_document", { type: "manual", message: "ID document is required." }); setIsSubmitting(false); return; }
+      if (!currentProfileState.profile_photo) { setError("profile_photo", { type: "manual", message: "Profile photo is required." }); setIsSubmitting(false); return; }
+      if (!currentProfileState.id_document) { setError("id_document", { type: "manual", message: "ID document is required." }); setIsSubmitting(false); return; }
 
-      const finalData = { ...formData, profile_photo: updatedProfile.profile_photo, id_document: updatedProfile.id_document };
+      const finalData = { ...formData, profile_photo: currentProfileState.profile_photo, id_document: currentProfileState.id_document };
       const response = await SitterService.updatePersonalInfo(finalData);
       onSave(response.data);
     } catch (err) {
