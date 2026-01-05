@@ -16,8 +16,6 @@ const personalInfoSchema = z.object({
   phone_number: z.string().min(10, "A valid phone number is required."),
   national_code: z.string().min(10, "National code must be 10 digits.").max(10, "National code must be 10 digits."),
   postal_code: z.string().min(10, "Postal code must be 10 digits.").max(10, "Postal code must be 10 digits."),
-  id_document: z.string().min(1, "ID document is required."),
-  profile_photo: z.string().min(1, "Profile photo is required."),
   emergency_contact_name: z.string().min(2, "Emergency contact is required."),
   emergency_contact_phone: z.string().min(10, "A valid phone number is required."),
 });
@@ -40,12 +38,11 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
   const [otp, setOtp] = useState('');
 
-  const { register, handleSubmit, formState: { errors }, setValue, reset, watch } = useForm({
+  const { register, handleSubmit, formState: { errors }, setValue, reset, watch, setError, clearErrors } = useForm({
     resolver: zodResolver(personalInfoSchema),
     defaultValues: {
       full_name: '', date_of_birth: '', phone_number: '', national_code: '',
-      postal_code: '', id_document: '', profile_photo: '',
-      emergency_contact_name: '', emergency_contact_phone: '',
+      postal_code: '', emergency_contact_name: '', emergency_contact_phone: '',
     }
   });
 
@@ -53,10 +50,7 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
 
   useEffect(() => {
     if (profileData) {
-      reset({
-        ...profileData,
-        date_of_birth: profileData.date_of_birth ? new Date(profileData.date_of_birth).toISOString().split('T')[0] : '',
-      });
+      reset(profileData);
       setPhotoPreview(profileData.profile_photo);
       setIsPhoneVerified(profileData.is_phone_verified || false);
     }
@@ -67,11 +61,16 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
     if (file) {
       setPhotoFile(file);
       setPhotoPreview(URL.createObjectURL(file));
+      clearErrors("profile_photo");
     }
   };
 
   const handleDocumentChange = (e) => {
-    setDocumentFile(e.target.files[0]);
+    const file = e.target.files[0];
+    if (file) {
+      setDocumentFile(file);
+      clearErrors("id_document");
+    }
   };
 
   const handleSendOtp = async () => {
@@ -106,14 +105,23 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
         const photoRes = await SitterService.uploadProfilePhoto(photoFile);
         photoUrl = photoRes.data.url;
       }
-      setValue('profile_photo', photoUrl);
-
-      let docUrl = formData.id_document;
+      
+      let docUrl = profileData?.id_document;
       if (documentFile) {
         const docRes = await SitterService.uploadIdDocument(documentFile);
         docUrl = docRes.data.url;
       }
-      setValue('id_document', docUrl);
+
+      if (!photoUrl) {
+        setError("profile_photo", { type: "manual", message: "Profile photo is required." });
+        setIsSubmitting(false);
+        return;
+      }
+      if (!docUrl) {
+        setError("id_document", { type: "manual", message: "ID document is required." });
+        setIsSubmitting(false);
+        return;
+      }
 
       const finalData = { ...formData, profile_photo: photoUrl, id_document: docUrl };
       const response = await SitterService.updatePersonalInfo(finalData);
