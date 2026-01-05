@@ -77,7 +77,12 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
 
   const reverseGeocode = useCallback(debounce(async (lat, lng) => {
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
+        headers: {
+          'User-Agent': 'WagyWebApp/1.0 (behnam.z.web@gmail.com)' // Replace with your app info
+        }
+      });
+      if (!response.ok) throw new Error('Unable to geocode');
       const data = await response.json();
       if (data.address) {
         setValue('city', data.address.city || data.address.town || data.address.village || '');
