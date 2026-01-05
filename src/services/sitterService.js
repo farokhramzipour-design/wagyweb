@@ -4,14 +4,9 @@ import api from './api';
 export const requestEmailOtp = (email) => api.post('/auth/email/login', { email });
 export const verifyEmailOtp = (email, otp) => api.post('/auth/email/verify', { email, otp });
 export const requestMobileOtp = (phone_number) => api.post('/auth/mobile/login', { phone_number });
-export const verifyMobileOtp = (phone_number, otp) => api.post('/auth/mobile/verify', { phone_number, otp });
+export const verifySitterPhone = (phone_number, otp) => api.post('/sitters/verify-phone-update', { phone_number, otp });
 
 // --- Utils ---
-/**
- * Fetches address details from a postal code.
- * @param {string} postal_code The 10-digit postal code.
- * @returns {Promise<Object>} The address data.
- */
 export const getAddressFromPostalCode = (postal_code) => {
   return api.post('/verification/postal-code', { postal_code });
 };

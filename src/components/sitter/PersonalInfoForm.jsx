@@ -14,7 +14,7 @@ import { UploadCloud } from 'lucide-react';
 const personalInfoSchema = z.object({
   full_name: z.string().min(2, "Full name is required."),
   date_of_birth: z.string().refine(val => new Date(val) >= new Date('1900-01-01'), "Please enter a valid date of birth."),
-  phone_number: z.string().min(10, "A valid phone number is required."),
+  phone_number: z.string().min(11, "Phone number must be at least 11 digits.").max(11, "Phone number must be 11 digits."),
   national_code: z.string().min(10, "National code must be 10 digits.").max(10, "National code must be 10 digits."),
   postal_code: z.string().min(10, "Postal code must be 10 digits.").max(10, "Postal code must be 10 digits."),
   address: z.string().min(5, "Address is required."),
@@ -40,6 +40,7 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
   const [otp, setOtp] = useState('');
   const [isFetchingAddress, setIsFetchingAddress] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
 
   const { register, handleSubmit, formState: { errors }, setValue, reset, watch, setError, clearErrors } = useForm({
     resolver: zodResolver(personalInfoSchema),
@@ -56,27 +57,24 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
     if (profileData) {
       reset(profileData);
       setPhotoPreview(profileData.profile_photo);
-      setIsPhoneVerified(profileData.is_phone_verified || false);
+      if (profileData.is_phone_verified) {
+        setIsPhoneVerified(true);
+      }
     }
   }, [profileData, reset]);
 
   const handleAddressFetch = useCallback(async (code) => {
-    if (code.length === 10) {
+    if (code.length === 10 && !profileData?.address) {
       setIsFetchingAddress(true);
       try {
         const response = await SitterService.getAddressFromPostalCode(code);
         const addressData = response.data.address;
         if (addressData) {
           const fullAddress = [
-            addressData.province,
-            addressData.town,
-            addressData.district,
-            addressData.street2,
-            addressData.street,
-            `Building: ${addressData.building_name}`,
-            `Number: ${addressData.number}`,
-            `Floor: ${addressData.floor}`,
-            `Side Floor: ${addressData.side_floor}`
+            addressData.province, addressData.town, addressData.district,
+            addressData.street2, addressData.street,
+            `Building: ${addressData.building_name}`, `Number: ${addressData.number}`,
+            `Floor: ${addressData.floor}`, `Side Floor: ${addressData.side_floor}`
           ].filter(part => part && part.trim() !== '' && !part.includes('null')).join(', ');
           setValue('address', fullAddress);
           clearErrors('address');
@@ -89,11 +87,19 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
         setIsFetchingAddress(false);
       }
     }
-  }, [setValue, setError, clearErrors]);
+  }, [setValue, setError, clearErrors, profileData?.address]);
 
   useEffect(() => {
     handleAddressFetch(postalCode);
   }, [postalCode, handleAddressFetch]);
+
+  useEffect(() => {
+    let timer;
+    if (resendTimer > 0) {
+      timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [resendTimer]);
 
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
@@ -106,18 +112,20 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
   };
 
   const handleSendOtp = async () => {
+    setResendTimer(120);
     try {
       await SitterService.requestMobileOtp(phoneNumber);
       setOtpSent(true);
       addToast({ title: "OTP Sent", description: "An OTP has been sent to your phone." });
     } catch (error) {
       addToast({ title: "Error", description: "Could not send OTP.", variant: "destructive" });
+      setResendTimer(0);
     }
   };
 
   const handleVerifyOtp = async () => {
     try {
-      await SitterService.verifyMobileOtp(phoneNumber, otp);
+      await SitterService.verifySitterPhone(phoneNumber, otp);
       setIsPhoneVerified(true);
       addToast({ title: "Success", description: "Phone number verified." });
     } catch (error) {
@@ -134,32 +142,27 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
     try {
       let photoUrl = profileData?.profile_photo || null;
       let docUrl = profileData?.government_id_image || null;
-      console.log("Photo URL after upload:", photoUrl);
-      console.log("Doc URL after upload:", docUrl); // <-- DEBUGGING LINE
+
       if (photoFile) {
         const photoRes = await SitterService.uploadProfilePhoto(photoFile);
         photoUrl = photoRes.data.profile_photo;
-        console.log("Photo URL after upload:", photoUrl); // <-- DEBUGGING LINE
       }
       
       if (documentFile) {
         const docRes = await SitterService.uploadIdDocument(documentFile);
         docUrl = docRes.data.government_id_image;
-        console.log("Doc URL after upload:", docUrl); // <-- DEBUGGING LINE
       }
 
-      if (!photoUrl) {
-        setError("profile_photo", { type: "manual", message: "Profile photo is required." });
-        setIsSubmitting(false);
-        return;
-      }
-      if (!docUrl) {
-        setError("government_id_image", { type: "manual", message: "ID document is required." });
-        setIsSubmitting(false);
-        return;
-      }
+      if (!photoUrl) { setError("profile_photo", { type: "manual", message: "Profile photo is required." }); setIsSubmitting(false); return; }
+      if (!docUrl) { setError("government_id_image", { type: "manual", message: "ID document is required." }); setIsSubmitting(false); return; }
 
-      const finalData = { ...formData, profile_photo: photoUrl, government_id_image: docUrl };
+      const finalData = { 
+        ...formData, 
+        profile_photo: photoUrl, 
+        government_id_image: docUrl,
+        government_id_type: "national_id",
+        government_id_number: formData.national_code,
+      };
       const response = await SitterService.updatePersonalInfo(finalData);
       onSave(response.data);
     } catch (err) {
@@ -193,8 +196,8 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
           <div className="space-y-2">
             <Label>Phone Number Verification</Label>
             <div className="flex gap-2">
-              <Input {...register('phone_number')} placeholder="e.g., 09123456789" disabled={isPhoneVerified || otpSent} />
-              {!isPhoneVerified && <Button type="button" onClick={handleSendOtp} disabled={otpSent}>{otpSent ? 'OTP Sent' : 'Send OTP'}</Button>}
+              <Input {...register('phone_number')} placeholder="e.g., 09123456789" disabled={isPhoneVerified} />
+              {!isPhoneVerified && <Button type="button" onClick={handleSendOtp} disabled={otpSent || phoneNumber?.length < 11 || resendTimer > 0}>{resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Send OTP'}</Button>}
             </div>
             {errors.phone_number && <p className="text-sm text-red-600">{errors.phone_number.message}</p>}
             {isPhoneVerified && <p className="text-sm text-green-600">Phone number verified!</p>}
