@@ -4,7 +4,7 @@ import api from './api';
 export const requestEmailOtp = (email) => api.post('/auth/email/login', { email });
 export const verifyEmailOtp = (email, otp) => api.post('/auth/email/verify', { email, otp });
 export const requestMobileOtp = (phone_number) => api.post('/auth/mobile/login', { phone_number });
-export const verifySitterPhone = (phone_number, otp) => api.post('/sitters/verify-phone-update', { phone_number, otp });
+export const verifySitterPhone = (phone, otp) => api.post('/sitters/verify-phone-update', { phone, otp });
 
 // --- Utils ---
 export const getAddressFromPostalCode = (postal_code) => {
