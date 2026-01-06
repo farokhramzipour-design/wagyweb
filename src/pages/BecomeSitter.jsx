@@ -59,12 +59,10 @@ const BecomeSitter = () => {
         setLoading(true);
         const { data } = await SitterService.getSitterProfile();
         setSitterProfile(data);
-        // Start user at the next step they need to complete
         const nextStep = data.onboarding_step > 0 ? data.onboarding_step + 1 : 1;
-        // Ensure the next step is valid within the active steps
-        const isValidStep = activeSteps.some(step => step.id === nextStep);
-        setCurrentStep(isValidStep ? nextStep : activeSteps[activeSteps.length - 1].id);
-
+        const activeStepIds = allSteps.filter(step => !step.condition || step.condition(data)).map(step => step.id);
+        const isValidStep = activeStepIds.includes(nextStep);
+        setCurrentStep(isValidStep ? nextStep : (activeStepIds[activeStepIds.length - 1] || 1));
       } catch (err) {
         console.log("No existing sitter profile found. Starting fresh.");
         setCurrentStep(1);
@@ -73,7 +71,7 @@ const BecomeSitter = () => {
       }
     };
     fetchProfile();
-  }, [activeSteps]); // Rerun if activeSteps changes
+  }, []); // Removed activeSteps from dependency array
 
   const CurrentComponent = activeSteps.find(step => step.id === currentStep)?.component;
   const isLastStep = currentStep === activeSteps[activeSteps.length - 1]?.id;
