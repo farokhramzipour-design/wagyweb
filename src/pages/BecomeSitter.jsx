@@ -15,7 +15,7 @@ const PricingForm = lazy(() => import('@/components/sitter/PricingForm'));
 
 const StepLoading = () => (
   <div className="flex justify-center items-center h-96">
-    <p className="text-brand-charcoal">Loading next step...</p>
+    <p className="text-brand-charcoal">Loading your profile...</p>
   </div>
 );
 
@@ -50,51 +50,51 @@ const BecomeSitter = () => {
   ], []);
 
   const activeSteps = useMemo(() => {
+    // If profile hasn't loaded, only show the first step to prevent errors
+    if (!sitterProfile) {
+      return allSteps.filter(step => step.id === 1);
+    }
     return allSteps.filter(step => !step.condition || step.condition(sitterProfile));
   }, [allSteps, sitterProfile]);
 
+  // Effect to fetch initial profile
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         setLoading(true);
         const { data } = await SitterService.getSitterProfile();
         setSitterProfile(data);
-
-        const lastStepId = allSteps[allSteps.length - 1].id;
-        if (data.onboarding_step > lastStepId) {
-          setIsSubmitted(true);
-        } else {
-          setCurrentStep(data.onboarding_step || 1);
-        }
       } catch (err) {
         console.log("No existing sitter profile found. Starting fresh.");
-        setCurrentStep(1);
       } finally {
         setLoading(false);
       }
     };
     fetchProfile();
-  }, [allSteps]);
+  }, []);
+
+  // Effect to set the current step once the profile is loaded
+  useEffect(() => {
+    if (sitterProfile) {
+      const lastCompletedStep = sitterProfile.onboarding_step || 0;
+      const lastStepId = allSteps[allSteps.length - 1].id;
+
+      if (lastCompletedStep >= lastStepId) {
+        setIsSubmitted(true);
+        return;
+      }
+      
+      const nextStepId = lastCompletedStep + 1;
+      const nextStep = activeSteps.find(step => step.id === nextStepId);
+      
+      setCurrentStep(nextStep ? nextStep.id : 1);
+    }
+  }, [sitterProfile, activeSteps, allSteps]);
+
 
   const handleSave = (updatedProfile) => {
     setSitterProfile(updatedProfile);
-    const nextStep = updatedProfile.onboarding_step || currentStep;
-    
-    const isLastStep = currentStep === activeSteps[activeSteps.length - 1]?.id;
-    if (isLastStep) {
-      handleFinalSubmit();
-      return;
-    }
-
-    const isValidApiStep = activeSteps.some(step => step.id === nextStep);
-    if (isValidApiStep && nextStep > currentStep) {
-      setCurrentStep(nextStep);
-    } else {
-      const currentIndex = activeSteps.findIndex(step => step.id === currentStep);
-      if (currentIndex < activeSteps.length - 1) {
-        setCurrentStep(activeSteps[currentIndex + 1].id);
-      }
-    }
+    // The useEffect above will handle setting the next step
   };
 
   const handlePrevStep = () => {
