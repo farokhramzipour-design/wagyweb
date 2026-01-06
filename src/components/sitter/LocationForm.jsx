@@ -41,7 +41,6 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
-  const mapInstanceRef = useRef(null);
   const [isMapReady, setIsMapReady] = useState(false);
 
   const { register, handleSubmit, watch, formState: { errors }, setValue, reset } = useForm({
@@ -83,13 +82,12 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
 
       const map = new window.L.Map(mapRef.current, {
         key: process.env.VITE_NESHAN_API_KEY,
-        maptype: 'dreamy',
-        poi: true,
+        maptype: 'neshan',
+        poi: false,
         traffic: false,
         center: [initialLat, initialLng],
         zoom: 13,
       });
-      mapInstanceRef.current = map;
 
       const marker = new window.L.Marker([initialLat, initialLng], { draggable: true }).addTo(map);
       markerRef.current = marker;
@@ -122,8 +120,8 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
   const handleLocateMe = () => {
     navigator.geolocation.getCurrentPosition((position) => {
       const { latitude, longitude } = position.coords;
-      if (mapInstanceRef.current && markerRef.current) {
-        mapInstanceRef.current.flyTo([latitude, longitude], 14);
+      if (mapRef.current && markerRef.current) {
+        mapRef.current.flyTo([latitude, longitude], 14);
         markerRef.current.setLatLng([latitude, longitude]);
         setValue('latitude', latitude);
         setValue('longitude', longitude);
