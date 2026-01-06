@@ -62,6 +62,9 @@ export const updatePersonalInfo = (data) => api.patch('/sitters/personal-info', 
 export const updateLocation = (data) => api.patch('/sitters/location', data);
 export const updateBoardingService = (data) => api.patch('/sitters/services/boarding', data);
 export const updateWalkingService = (data) => api.patch('/sitters/services/walking', data);
+export const updateHouseSittingService = (data) => api.patch('/sitters/services/house-sitting', data);
+export const updateDropInService = (data) => api.patch('/sitters/services/drop-in', data);
+export const updateDayCareService = (data) => api.patch('/sitters/services/daycare', data);
 export const updateExperience = (data) => api.patch('/sitters/experience', data);
 export const updateHome = (data) => api.patch('/sitters/home', data);
 export const updateContent = (data) => api.patch('/sitters/content', data);
