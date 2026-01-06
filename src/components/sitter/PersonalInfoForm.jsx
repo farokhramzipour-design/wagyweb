@@ -42,7 +42,7 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
   const [isFetchingAddress, setIsFetchingAddress] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
 
-  const { register, handleSubmit, formState: { errors }, setValue, reset, watch, setError, clearErrors } = useForm({
+  const { register, handleSubmit, formState: { errors }, setValue, reset, watch, setError, clearErrors, trigger } = useForm({
     resolver: zodResolver(personalInfoSchema),
     defaultValues: {
       full_name: '', date_of_birth: '', phone_number: '', national_code: '',
@@ -139,6 +139,11 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
 
   const onSubmit = async (formData) => {
     if (!isPhoneVerified) {
+      const phoneIsValid = await trigger("phone_number");
+      if (!phoneIsValid) {
+        addToast({ title: "Verification Required", description: "Please enter a valid phone number and verify it.", variant: "destructive" });
+        return;
+      }
       addToast({ title: "Verification Required", description: "Please verify your phone number.", variant: "destructive" });
       return;
     }
