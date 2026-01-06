@@ -39,8 +39,8 @@ const Checkbox = ({ name, value, label, register }) => (
 const LocationForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const mapRef = useRef(null);
   const appRef = useRef(null);
+  const [isMapScriptReady, setIsMapScriptReady] = useState(false);
 
   const { register, handleSubmit, watch, formState: { errors }, setValue, reset } = useForm({
     resolver: zodResolver(locationSchema),
@@ -49,6 +49,13 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
       service_radius_km: 10, available_days: [], available_time_slots: [],
     }
   });
+
+  useEffect(() => {
+    // Check if the map.ir script is loaded
+    if (window.Mapp) {
+      setIsMapScriptReady(true);
+    }
+  }, []);
 
   const reverseGeocode = useCallback(debounce(async (lat, lng) => {
     try {
@@ -65,12 +72,12 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
   }, 500), [setValue, addToast]);
 
   useEffect(() => {
-    if (window.Mapp && mapRef.current) {
+    if (isMapScriptReady) {
       const initialLat = profileData?.latitude || 35.715298;
       const initialLng = profileData?.longitude || 51.404343;
 
       const app = new window.Mapp({
-        element: mapRef.current,
+        element: '#map-container', // Use ID selector string
         presets: {
           latlng: { lat: initialLat, lng: initialLng },
           zoom: 13,
@@ -109,7 +116,7 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
         if (app) app.destroy();
       };
     }
-  }, [profileData, reset, reverseGeocode, setValue]);
+  }, [isMapScriptReady, profileData, reset, reverseGeocode, setValue]);
 
   const handleLocateMe = () => {
     navigator.geolocation.getCurrentPosition((position) => {
@@ -154,7 +161,7 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="relative h-64 w-full rounded-lg overflow-hidden">
-            <div ref={mapRef} style={{ height: '100%', width: '100%' }}></div>
+            <div id="map-container" style={{ height: '100%', width: '100%' }}></div>
             <Button type="button" size="icon" className="absolute top-3 right-3 z-10 bg-white text-brand-charcoal hover:bg-neutral-light-gray shadow-md" onClick={handleLocateMe}>
               <LocateFixed className="h-5 w-5" />
             </Button>
