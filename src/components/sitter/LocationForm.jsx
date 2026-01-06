@@ -53,7 +53,7 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      if (window.L && window.L.neshan) {
+      if (window.L) { // Simplified and more robust check
         setIsMapReady(true);
         clearInterval(interval);
       }
