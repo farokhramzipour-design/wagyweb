@@ -69,9 +69,9 @@ const BecomeSitter = () => {
 
   useEffect(() => {
     if (sitterProfile) {
-      const nextStep = sitterProfile.onboarding_step > 0 ? sitterProfile.onboarding_step + 1 : 1;
-      const isValidStep = activeSteps.some(step => step.id === nextStep);
-      setCurrentStep(isValidStep ? nextStep : (activeSteps[activeSteps.length - 1]?.id || 1));
+      const startingStep = sitterProfile.onboarding_step || 1;
+      const isValidStep = activeSteps.some(step => step.id === startingStep);
+      setCurrentStep(isValidStep ? startingStep : 1);
     }
   }, [sitterProfile, activeSteps]);
 
