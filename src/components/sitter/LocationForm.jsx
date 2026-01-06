@@ -39,10 +39,8 @@ const Checkbox = ({ name, value, label, register }) => (
 const LocationForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isMapReady, setIsMapReady] = useState(false);
   const mapRef = useRef(null);
-  const markerRef = useRef(null);
-  const mapInstanceRef = useRef(null);
+  const appRef = useRef(null);
 
   const { register, handleSubmit, watch, formState: { errors }, setValue, reset } = useForm({
     resolver: zodResolver(locationSchema),
@@ -51,32 +49,6 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
       service_radius_km: 10, available_days: [], available_time_slots: [],
     }
   });
-
-  useEffect(() => {
-    const loadScript = (src, onLoad) => {
-      const script = document.createElement('script');
-      script.src = src;
-      script.onload = onLoad;
-      document.body.appendChild(script);
-    };
-
-    const loadCss = (href) => {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = href;
-      document.head.appendChild(link);
-    };
-
-    loadCss("https://cdn.map.ir/web-sdk/1.4.2/css/mapp.min.css");
-
-    loadScript("https://code.jquery.com/jquery-3.6.0.min.js", () => {
-      loadScript("https://cdn.map.ir/web-sdk/1.4.2/js/mapp.env.js", () => {
-        loadScript("https://cdn.map.ir/web-sdk/1.4.2/js/mapp.min.js", () => {
-          setIsMapReady(true);
-        });
-      });
-    });
-  }, []);
 
   const reverseGeocode = useCallback(debounce(async (lat, lng) => {
     try {
@@ -93,29 +65,32 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
   }, 500), [setValue, addToast]);
 
   useEffect(() => {
-    if (isMapReady && mapRef.current) {
+    if (window.Mapp && mapRef.current) {
       const initialLat = profileData?.latitude || 35.715298;
       const initialLng = profileData?.longitude || 51.404343;
 
-      const map = new window.mapir.Map({
-          container: mapRef.current,
-          center: [initialLng, initialLat],
+      const app = new window.Mapp({
+        element: mapRef.current,
+        presets: {
+          latlng: { lat: initialLat, lng: initialLng },
           zoom: 13,
+        },
+        apiKey: process.env.VITE_MAP_IR_API_KEY,
       });
-      mapInstanceRef.current = map;
+      app.addLayers();
+      appRef.current = app;
 
-      const marker = new window.mapir.Marker({
-          map: map,
-          position: [initialLng, initialLat],
-          draggable: true,
+      const marker = app.addMarker({
+        name: 'main-marker',
+        latlng: { lat: initialLat, lng: initialLng },
+        draggable: true,
       });
-      markerRef.current = marker;
 
       marker.on('dragend', () => {
-          const { lng, lat } = marker.getPosition();
-          setValue('longitude', lng);
-          setValue('latitude', lat);
-          reverseGeocode(lat, lng);
+        const { lng, lat } = marker.latlng;
+        setValue('longitude', lng);
+        setValue('latitude', lat);
+        reverseGeocode(lat, lng);
       });
       
       if (profileData) {
@@ -131,17 +106,17 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
       }
 
       return () => {
-        if (map) map.remove();
+        if (app) app.destroy();
       };
     }
-  }, [isMapReady, profileData, reset, reverseGeocode, setValue]);
+  }, [profileData, reset, reverseGeocode, setValue]);
 
   const handleLocateMe = () => {
     navigator.geolocation.getCurrentPosition((position) => {
       const { latitude, longitude } = position.coords;
-      if (mapInstanceRef.current && markerRef.current) {
-        mapInstanceRef.current.flyTo([longitude, latitude], 14);
-        markerRef.current.setPosition([longitude, latitude]);
+      if (appRef.current) {
+        appRef.current.map.flyTo([latitude, longitude], 14);
+        appRef.current.markers['main-marker'].setLatLng({lat: latitude, lng: longitude});
         setValue('longitude', longitude);
         setValue('latitude', latitude);
         reverseGeocode(latitude, longitude);
@@ -179,12 +154,8 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="relative h-64 w-full rounded-lg overflow-hidden">
-            {isMapReady ? (
-              <div ref={mapRef} style={{ height: '100%', width: '100%' }}></div>
-            ) : (
-              <div className="flex items-center justify-center h-full">Loading Map...</div>
-            )}
-            <Button type="button" size="icon" className="absolute top-3 right-3 z-10 bg-white text-brand-charcoal hover:bg-neutral-light-gray shadow-md" onClick={handleLocateMe} disabled={!isMapReady}>
+            <div ref={mapRef} style={{ height: '100%', width: '100%' }}></div>
+            <Button type="button" size="icon" className="absolute top-3 right-3 z-10 bg-white text-brand-charcoal hover:bg-neutral-light-gray shadow-md" onClick={handleLocateMe}>
               <LocateFixed className="h-5 w-5" />
             </Button>
           </div>
