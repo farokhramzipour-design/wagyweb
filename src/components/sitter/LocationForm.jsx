@@ -10,8 +10,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { useToast } from '@/hooks/use-toast';
 import { LocateFixed } from 'lucide-react';
 import { debounce } from 'lodash';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
 
 const locationSchema = z.object({
   country: z.string().min(2, "Country is required."),
@@ -38,37 +36,36 @@ const Checkbox = ({ name, value, label, register }) => (
     </label>
 );
 
-const MapEvents = ({ onLocationChange }) => {
-  useMapEvents({
-    click(e) {
-      onLocationChange(e.latlng);
-    },
-    locationfound(e) {
-      onLocationChange(e.latlng);
-    },
-  });
-  return null;
-};
-
 const LocationForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [mapPosition, setMapPosition] = useState([35.715298, 51.404343]);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const [isMapReady, setIsMapReady] = useState(false);
 
   const { register, handleSubmit, watch, formState: { errors }, setValue, reset } = useForm({
     resolver: zodResolver(locationSchema),
     defaultValues: {
-      country: '', city: '', latitude: 35.715298, longitude: 51.404343,
+      country: 'Iran', city: '', latitude: 35.715298, longitude: 51.404343,
       service_radius_km: 10, available_days: [], available_time_slots: [],
     }
   });
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (window.L && window.L.neshan) {
+        setIsMapReady(true);
+        clearInterval(interval);
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
+
   const reverseGeocode = useCallback(debounce(async (lat, lng) => {
     try {
-      const response = await fetch(`https://map.ir/reverse/fast-reverse?lat=${lat}&lon=${lng}`, {
-        headers: { 'x-api-key': process.env.VITE_MAP_IR_API_KEY }
+      const response = await fetch(`https://api.neshan.org/v5/reverse?lat=${lat}&lng=${lng}`, {
+        headers: { 'Api-Key': process.env.VITE_NESHAN_API_KEY }
       });
       if (!response.ok) throw new Error('Unable to geocode');
       const data = await response.json();
@@ -80,36 +77,61 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
   }, 500), [setValue, addToast]);
 
   useEffect(() => {
-    if (profileData) {
-      const lat = profileData.latitude || 35.715298;
-      const lng = profileData.longitude || 51.404343;
-      setMapPosition([lat, lng]);
-      if (mapRef.current) {
-        mapRef.current.flyTo([lat, lng], 13);
-      }
-      reset({
-        country: profileData.country || '',
-        city: profileData.city || '',
-        latitude: lat,
-        longitude: lng,
-        service_radius_km: profileData.service_radius_km || 10,
-        available_days: profileData.available_days || [],
-        available_time_slots: profileData.available_time_slots ? Object.keys(profileData.available_time_slots) : [],
-      });
-    }
-  }, [profileData, reset]);
+    if (isMapReady && mapRef.current) {
+      const initialLat = profileData?.latitude || 35.715298;
+      const initialLng = profileData?.longitude || 51.404343;
 
-  const handleLocationChange = (latlng) => {
-    setMapPosition([latlng.lat, latlng.lng]);
-    setValue('latitude', latlng.lat);
-    setValue('longitude', latlng.lng);
-    reverseGeocode(latlng.lat, latlng.lng);
-  };
+      const map = new window.L.Map(mapRef.current, {
+        key: process.env.VITE_NESHAN_API_KEY,
+        maptype: 'dreamy',
+        poi: true,
+        traffic: false,
+        center: [initialLat, initialLng],
+        zoom: 13,
+      });
+      mapInstanceRef.current = map;
+
+      const marker = new window.L.Marker([initialLat, initialLng], { draggable: true }).addTo(map);
+      markerRef.current = marker;
+
+      marker.on('dragend', (e) => {
+        const { lat, lng } = e.target.getLatLng();
+        setValue('latitude', lat);
+        setValue('longitude', lng);
+        reverseGeocode(lat, lng);
+      });
+      
+      if (profileData) {
+        reset({
+          country: profileData.country || 'Iran',
+          city: profileData.city || '',
+          latitude: initialLat,
+          longitude: initialLng,
+          service_radius_km: profileData.service_radius_km || 10,
+          available_days: profileData.available_days || [],
+          available_time_slots: profileData.available_time_slots ? Object.keys(profileData.available_time_slots) : [],
+        });
+      }
+
+      return () => {
+        if (map) map.remove();
+      };
+    }
+  }, [isMapReady, profileData, reset, reverseGeocode, setValue]);
 
   const handleLocateMe = () => {
-    if (mapRef.current) {
-      mapRef.current.locate();
-    }
+    navigator.geolocation.getCurrentPosition((position) => {
+      const { latitude, longitude } = position.coords;
+      if (mapInstanceRef.current && markerRef.current) {
+        mapInstanceRef.current.flyTo([latitude, longitude], 14);
+        markerRef.current.setLatLng([latitude, longitude]);
+        setValue('latitude', latitude);
+        setValue('longitude', longitude);
+        reverseGeocode(latitude, longitude);
+      }
+    }, (error) => {
+      addToast({ title: "Geolocation Error", description: error.message, variant: "destructive" });
+    }, { enableHighAccuracy: true });
   };
 
   const onSubmit = async (formData) => {
@@ -131,13 +153,6 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
     }
   };
 
-  const wmsHeaderOptions = [
-    {
-      header: "x-api-key",
-      value: process.env.VITE_MAP_IR_API_KEY
-    }
-  ];
-
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <Card className="border-neutral-gray shadow-md">
@@ -147,24 +162,10 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="relative h-64 w-full rounded-lg overflow-hidden">
-            <MapContainer center={mapPosition} zoom={13} ref={mapRef} style={{ height: '100%', width: '100%' }}>
-              <TileLayer
-                url="https://map.ir/shiveh"
-                wmsHeader={wmsHeaderOptions}
-                layers="Shiveh:Shiveh"
-                format="image/png"
-              />
-              <Marker
-                position={mapPosition}
-                draggable={true}
-                eventHandlers={{
-                  dragend: (e) => handleLocationChange(e.target.getLatLng()),
-                }}
-                ref={markerRef}
-              />
-              <MapEvents onLocationChange={handleLocationChange} />
-            </MapContainer>
-            <Button type="button" size="icon" className="absolute top-3 right-3 z-[1000] bg-white text-brand-charcoal hover:bg-neutral-light-gray shadow-md" onClick={handleLocateMe}>
+            <div id="map" ref={mapRef} style={{ height: '100%', width: '100%' }}>
+              {!isMapReady && <div className="flex items-center justify-center h-full">Loading Map...</div>}
+            </div>
+            <Button type="button" size="icon" className="absolute top-3 right-3 z-[1000] bg-white text-brand-charcoal hover:bg-neutral-light-gray shadow-md" onClick={handleLocateMe} disabled={!isMapReady}>
               <LocateFixed className="h-5 w-5" />
             </Button>
           </div>
