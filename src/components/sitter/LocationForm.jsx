@@ -10,7 +10,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { useToast } from '@/hooks/use-toast';
 import { LocateFixed } from 'lucide-react';
 import { debounce } from 'lodash';
-import useMapir from '@/hooks/use-mapir';
 
 const locationSchema = z.object({
   country: z.string().min(2, "Country is required."),
@@ -40,10 +39,10 @@ const Checkbox = ({ name, value, label, register }) => (
 const LocationForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isMapLoaded, mapError] = useMapir();
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const [isMapReady, setIsMapReady] = useState(false);
 
   const { register, handleSubmit, watch, formState: { errors }, setValue, reset } = useForm({
     resolver: zodResolver(locationSchema),
@@ -68,7 +67,8 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
   }, 500), [setValue, addToast]);
 
   useEffect(() => {
-    if (isMapLoaded && mapRef.current) {
+    if (window.mapir && mapRef.current) {
+      setIsMapReady(true);
       const initialLat = profileData?.latitude || 35.715298;
       const initialLng = profileData?.longitude || 51.404343;
 
@@ -110,7 +110,7 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
         if (map) map.remove();
       };
     }
-  }, [isMapLoaded, profileData, reset, reverseGeocode, setValue]);
+  }, [profileData, reset, reverseGeocode, setValue]);
 
   const handleLocateMe = () => {
     navigator.geolocation.getCurrentPosition((position) => {
@@ -155,12 +155,12 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="relative h-64 w-full rounded-lg overflow-hidden">
-            {isMapLoaded ? (
+            {isMapReady ? (
               <div ref={mapRef} style={{ height: '100%', width: '100%' }}></div>
             ) : (
-              <div className="flex items-center justify-center h-full">{mapError ? 'Error loading map.' : 'Loading Map...'}</div>
+              <div className="flex items-center justify-center h-full">Loading Map...</div>
             )}
-            <Button type="button" size="icon" className="absolute top-3 right-3 z-10 bg-white text-brand-charcoal hover:bg-neutral-light-gray shadow-md" onClick={handleLocateMe} disabled={!isMapLoaded}>
+            <Button type="button" size="icon" className="absolute top-3 right-3 z-10 bg-white text-brand-charcoal hover:bg-neutral-light-gray shadow-md" onClick={handleLocateMe} disabled={!isMapReady}>
               <LocateFixed className="h-5 w-5" />
             </Button>
           </div>
