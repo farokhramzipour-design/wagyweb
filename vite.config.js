@@ -6,7 +6,7 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
   define: {
-    'process.env.VITE_NESHAN_API_KEY': JSON.stringify('web.93408d79c04a487a9f9209e2390c1af0')
+    'process.env.VITE_NESHAN_API_KEY': JSON.stringify('service.57f87e02787a4f8385530b3b8bf5fd41')
   },
   resolve: {
     alias: {
