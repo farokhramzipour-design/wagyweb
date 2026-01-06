@@ -36,6 +36,7 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
   const [photoFile, setPhotoFile] = useState(null);
   const [documentFile, setDocumentFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [existingDocUrl, setExistingDocUrl] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
   const [otp, setOtp] = useState('');
@@ -55,11 +56,14 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
 
   useEffect(() => {
     if (profileData) {
-      reset({
+      const initialValues = {
         ...profileData,
         national_code: profileData.government_id_number || '',
-      });
+        phone_number: profileData.phone || '',
+      };
+      reset(initialValues);
       setPhotoPreview(profileData.profile_photo);
+      setExistingDocUrl(profileData.government_id_image || '');
       if (profileData.is_phone_verified) {
         setIsPhoneVerified(true);
       }
@@ -203,14 +207,12 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
           <div className="space-y-2">
             <Label>Phone Number</Label>
             {isPhoneVerified ? (
-              <p className="text-sm text-green-600 font-medium flex items-center gap-2"><CheckCircle className="h-4 w-4" /> Your phone number ({profileData?.phone_number}) is verified.</p>
+              <p className="text-sm text-green-600 font-medium flex items-center gap-2"><CheckCircle className="h-4 w-4" /> Your phone number ({watch('phone_number')}) is verified.</p>
             ) : (
               <>
                 <div className="flex gap-2">
                   <Input {...register('phone_number')} placeholder="e.g., 09123456789" />
-                  <Button type="button" onClick={handleSendOtp} disabled={phoneNumber?.length < 11 || resendTimer > 0}>
-                    {resendTimer > 0 ? `Resend in ${resendTimer}s` : (otpSent ? 'Resend OTP' : 'Send OTP')}
-                  </Button>
+                  <Button type="button" onClick={handleSendOtp} disabled={phoneNumber?.length < 11 || resendTimer > 0}>{resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Send OTP'}</Button>
                 </div>
                 {errors.phone_number && <p className="text-sm text-red-600">{errors.phone_number.message}</p>}
               </>
@@ -240,7 +242,7 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
               <Label>ID Document (National ID Card)</Label>
               <Label htmlFor="document-upload" className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-md cursor-pointer hover:bg-neutral-light-gray">
                 <UploadCloud className="h-8 w-8 text-gray-500" />
-                <span className="text-sm text-gray-600">{documentFile ? documentFile.name : (profileData?.government_id_image ? "Document on file" : "Click to upload")}</span>
+                <span className="text-sm text-gray-600">{documentFile ? documentFile.name : (existingDocUrl ? "Document on file" : "Click to upload")}</span>
               </Label>
               <Input id="document-upload" type="file" accept="image/*,application/pdf" onChange={handleDocumentChange} className="hidden" />
               {errors.government_id_image && <p className="text-sm text-red-600">{errors.government_id_image.message}</p>}
