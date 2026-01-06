@@ -39,7 +39,8 @@ const Checkbox = ({ name, value, label, register }) => (
 const LocationForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const mapRef = useRef(null);
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
   const [isMapReady, setIsMapReady] = useState(false);
 
@@ -53,7 +54,7 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      if (window.L) { // Simplified and more robust check
+      if (window.L) {
         setIsMapReady(true);
         clearInterval(interval);
       }
@@ -76,11 +77,11 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
   }, 500), [setValue, addToast]);
 
   useEffect(() => {
-    if (isMapReady && mapRef.current) {
+    if (isMapReady && mapContainerRef.current) {
       const initialLat = profileData?.latitude || 35.715298;
       const initialLng = profileData?.longitude || 51.404343;
 
-      const map = new window.L.Map(mapRef.current, {
+      const map = new window.L.Map(mapContainerRef.current, {
         key: process.env.VITE_NESHAN_API_KEY,
         maptype: 'neshan',
         poi: false,
@@ -88,6 +89,7 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
         center: [initialLat, initialLng],
         zoom: 13,
       });
+      mapInstanceRef.current = map;
 
       const marker = new window.L.Marker([initialLat, initialLng], { draggable: true }).addTo(map);
       markerRef.current = marker;
@@ -120,8 +122,8 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
   const handleLocateMe = () => {
     navigator.geolocation.getCurrentPosition((position) => {
       const { latitude, longitude } = position.coords;
-      if (mapRef.current && markerRef.current) {
-        mapRef.current.flyTo([latitude, longitude], 14);
+      if (mapInstanceRef.current && markerRef.current) {
+        mapInstanceRef.current.flyTo([latitude, longitude], 14);
         markerRef.current.setLatLng([latitude, longitude]);
         setValue('latitude', latitude);
         setValue('longitude', longitude);
@@ -160,7 +162,7 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="relative h-64 w-full rounded-lg overflow-hidden">
-            <div id="map" ref={mapRef} style={{ height: '100%', width: '100%' }}>
+            <div id="map" ref={mapContainerRef} style={{ height: '100%', width: '100%' }}>
               {!isMapReady && <div className="flex items-center justify-center h-full">Loading Map...</div>}
             </div>
             <Button type="button" size="icon" className="absolute top-3 right-3 z-[1000] bg-white text-brand-charcoal hover:bg-neutral-light-gray shadow-md" onClick={handleLocateMe} disabled={!isMapReady}>
