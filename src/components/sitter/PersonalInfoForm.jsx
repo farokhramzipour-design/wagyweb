@@ -14,7 +14,7 @@ import { UploadCloud } from 'lucide-react';
 const personalInfoSchema = z.object({
   full_name: z.string().min(2, "Full name is required."),
   date_of_birth: z.string().refine(val => new Date(val) >= new Date('1900-01-01'), "Please enter a valid date of birth."),
-  phone_number: z.string().min(11, "Phone number must be at least 11 digits.").max(11, "Phone number must be 11 digits."),
+  phone_number: z.string().optional(),
   national_code: z.string().min(10, "National code must be 10 digits.").max(10, "National code must be 10 digits."),
   postal_code: z.string().min(10, "Postal code must be 10 digits.").max(10, "Postal code must be 10 digits."),
   address: z.string().min(5, "Address is required."),
@@ -42,7 +42,7 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
   const [isFetchingAddress, setIsFetchingAddress] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
 
-  const { register, handleSubmit, formState: { errors }, setValue, reset, watch, setError, clearErrors, trigger } = useForm({
+  const { register, handleSubmit, formState: { errors }, setValue, reset, watch, setError, clearErrors } = useForm({
     resolver: zodResolver(personalInfoSchema),
     defaultValues: {
       full_name: '', date_of_birth: '', phone_number: '', national_code: '',
@@ -139,11 +139,6 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
 
   const onSubmit = async (formData) => {
     if (!isPhoneVerified) {
-      const phoneIsValid = await trigger("phone_number");
-      if (!phoneIsValid) {
-        addToast({ title: "Verification Required", description: "Please enter a valid phone number and verify it.", variant: "destructive" });
-        return;
-      }
       addToast({ title: "Verification Required", description: "Please verify your phone number.", variant: "destructive" });
       return;
     }
@@ -203,13 +198,18 @@ const PersonalInfoForm = ({ profileData, onSave, onBack }) => {
           </div>
           
           <div className="space-y-2">
-            <Label>Phone Number Verification</Label>
-            <div className="flex gap-2">
-              <Input {...register('phone_number')} placeholder="e.g., 09123456789" disabled={isPhoneVerified} />
-              {!isPhoneVerified && <Button type="button" onClick={handleSendOtp} disabled={otpSent || phoneNumber?.length < 11 || resendTimer > 0}>{resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Send OTP'}</Button>}
-            </div>
-            {errors.phone_number && <p className="text-sm text-red-600">{errors.phone_number.message}</p>}
-            {isPhoneVerified && <p className="text-sm text-green-600">Phone number verified!</p>}
+            <Label>Phone Number</Label>
+            {isPhoneVerified ? (
+              <p className="text-sm text-green-600 font-medium">Your phone number ({profileData?.phone_number}) is verified.</p>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <Input {...register('phone_number')} placeholder="e.g., 09123456789" />
+                  <Button type="button" onClick={handleSendOtp} disabled={otpSent || phoneNumber?.length < 11 || resendTimer > 0}>{resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Send OTP'}</Button>
+                </div>
+                {errors.phone_number && <p className="text-sm text-red-600">{errors.phone_number.message}</p>}
+              </>
+            )}
           </div>
 
           {otpSent && !isPhoneVerified && (
