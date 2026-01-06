@@ -50,10 +50,7 @@ const BecomeSitter = () => {
   ], []);
 
   const activeSteps = useMemo(() => {
-    // If profile hasn't loaded, only show the first step to prevent errors
-    if (!sitterProfile) {
-      return allSteps.filter(step => step.id === 1);
-    }
+    if (!sitterProfile) return allSteps.filter(step => step.id === 1);
     return allSteps.filter(step => !step.condition || step.condition(sitterProfile));
   }, [allSteps, sitterProfile]);
 
@@ -73,43 +70,33 @@ const BecomeSitter = () => {
     fetchProfile();
   }, []);
 
-  // Effect to set the current step once the profile is loaded
+  // Effect to set the current step based on the loaded profile
   useEffect(() => {
     if (sitterProfile) {
-      const lastCompletedStep = sitterProfile.onboarding_step || 0;
       const lastStepId = allSteps[allSteps.length - 1].id;
+      const startingStep = sitterProfile.onboarding_step || 1;
 
-      if (lastCompletedStep >= lastStepId) {
+      if (startingStep > lastStepId) {
         setIsSubmitted(true);
         return;
       }
       
-      const nextStepId = lastCompletedStep + 1;
-      const nextStep = activeSteps.find(step => step.id === nextStepId);
-      
-      setCurrentStep(nextStep ? nextStep.id : 1);
+      const isValidStep = activeSteps.some(step => step.id === startingStep);
+      setCurrentStep(isValidStep ? startingStep : 1);
     }
   }, [sitterProfile, activeSteps, allSteps]);
 
-
   const handleSave = (updatedProfile) => {
     setSitterProfile(updatedProfile);
-    // The useEffect above will handle setting the next step
+    // The useEffect above will now handle setting the correct next step
   };
 
   const handlePrevStep = () => {
     const currentIndex = activeSteps.findIndex(step => step.id === currentStep);
     if (currentIndex > 0) {
-      setCurrentStep(activeSteps[currentIndex - 1].id);
-    }
-  };
-
-  const handleFinalSubmit = async () => {
-    try {
-      await SitterService.submitForReview();
-      setIsSubmitted(true);
-    } catch (error) {
-      console.error("Submission failed:", error);
+      const prevStepId = activeSteps[currentIndex - 1].id;
+      // This is a simple step-back, doesn't need API call
+      setCurrentStep(prevStepId);
     }
   };
 
@@ -132,11 +119,11 @@ const BecomeSitter = () => {
       </div>
     );
   }
-
+  
   if (!CurrentComponent) {
      return (
       <div className="flex justify-center items-center h-screen bg-neutral-light-gray">
-        <p className="text-brand-charcoal">Could not determine the current step. Please try again.</p>
+        <p className="text-brand-charcoal">Determining your next step...</p>
       </div>
     );
   }
