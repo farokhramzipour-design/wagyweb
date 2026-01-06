@@ -10,6 +10,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { useToast } from '@/hooks/use-toast';
 import { LocateFixed } from 'lucide-react';
 import { debounce } from 'lodash';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
 
 const locationSchema = z.object({
   country: z.string().min(2, "Country is required."),
@@ -36,11 +38,24 @@ const Checkbox = ({ name, value, label, register }) => (
     </label>
 );
 
+const MapEvents = ({ onLocationChange }) => {
+  useMapEvents({
+    click(e) {
+      onLocationChange(e.latlng);
+    },
+    locationfound(e) {
+      onLocationChange(e.latlng);
+    },
+  });
+  return null;
+};
+
 const LocationForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const appRef = useRef(null);
-  const [isMapScriptReady, setIsMapScriptReady] = useState(false);
+  const [mapPosition, setMapPosition] = useState([35.715298, 51.404343]);
+  const mapRef = useRef(null);
+  const markerRef = useRef(null);
 
   const { register, handleSubmit, watch, formState: { errors }, setValue, reset } = useForm({
     resolver: zodResolver(locationSchema),
@@ -49,13 +64,6 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
       service_radius_km: 10, available_days: [], available_time_slots: [],
     }
   });
-
-  useEffect(() => {
-    // Check if the map.ir script is loaded
-    if (window.Mapp) {
-      setIsMapScriptReady(true);
-    }
-  }, []);
 
   const reverseGeocode = useCallback(debounce(async (lat, lng) => {
     try {
@@ -72,65 +80,36 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
   }, 500), [setValue, addToast]);
 
   useEffect(() => {
-    if (isMapScriptReady) {
-      const initialLat = profileData?.latitude || 35.715298;
-      const initialLng = profileData?.longitude || 51.404343;
-
-      const app = new window.Mapp({
-        element: '#map-container', // Use ID selector string
-        presets: {
-          latlng: { lat: initialLat, lng: initialLng },
-          zoom: 13,
-        },
-        apiKey: process.env.VITE_MAP_IR_API_KEY,
-      });
-      app.addLayers();
-      appRef.current = app;
-
-      const marker = app.addMarker({
-        name: 'main-marker',
-        latlng: { lat: initialLat, lng: initialLng },
-        draggable: true,
-      });
-
-      marker.on('dragend', () => {
-        const { lng, lat } = marker.latlng;
-        setValue('longitude', lng);
-        setValue('latitude', lat);
-        reverseGeocode(lat, lng);
-      });
-      
-      if (profileData) {
-        reset({
-          country: profileData.country || '',
-          city: profileData.city || '',
-          latitude: initialLat,
-          longitude: initialLng,
-          service_radius_km: profileData.service_radius_km || 10,
-          available_days: profileData.available_days || [],
-          available_time_slots: profileData.available_time_slots ? Object.keys(profileData.available_time_slots) : [],
-        });
+    if (profileData) {
+      const lat = profileData.latitude || 35.715298;
+      const lng = profileData.longitude || 51.404343;
+      setMapPosition([lat, lng]);
+      if (mapRef.current) {
+        mapRef.current.flyTo([lat, lng], 13);
       }
-
-      return () => {
-        if (app) app.destroy();
-      };
+      reset({
+        country: profileData.country || '',
+        city: profileData.city || '',
+        latitude: lat,
+        longitude: lng,
+        service_radius_km: profileData.service_radius_km || 10,
+        available_days: profileData.available_days || [],
+        available_time_slots: profileData.available_time_slots ? Object.keys(profileData.available_time_slots) : [],
+      });
     }
-  }, [isMapScriptReady, profileData, reset, reverseGeocode, setValue]);
+  }, [profileData, reset]);
+
+  const handleLocationChange = (latlng) => {
+    setMapPosition([latlng.lat, latlng.lng]);
+    setValue('latitude', latlng.lat);
+    setValue('longitude', latlng.lng);
+    reverseGeocode(latlng.lat, latlng.lng);
+  };
 
   const handleLocateMe = () => {
-    navigator.geolocation.getCurrentPosition((position) => {
-      const { latitude, longitude } = position.coords;
-      if (appRef.current) {
-        appRef.current.map.flyTo([latitude, longitude], 14);
-        appRef.current.markers['main-marker'].setLatLng({lat: latitude, lng: longitude});
-        setValue('longitude', longitude);
-        setValue('latitude', latitude);
-        reverseGeocode(latitude, longitude);
-      }
-    }, (error) => {
-      addToast({ title: "Geolocation Error", description: error.message, variant: "destructive" });
-    }, { enableHighAccuracy: true });
+    if (mapRef.current) {
+      mapRef.current.locate();
+    }
   };
 
   const onSubmit = async (formData) => {
@@ -152,6 +131,13 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
     }
   };
 
+  const wmsHeaderOptions = [
+    {
+      header: "x-api-key",
+      value: process.env.VITE_MAP_IR_API_KEY
+    }
+  ];
+
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <Card className="border-neutral-gray shadow-md">
@@ -161,8 +147,24 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="relative h-64 w-full rounded-lg overflow-hidden">
-            <div id="map-container" style={{ height: '100%', width: '100%' }}></div>
-            <Button type="button" size="icon" className="absolute top-3 right-3 z-10 bg-white text-brand-charcoal hover:bg-neutral-light-gray shadow-md" onClick={handleLocateMe}>
+            <MapContainer center={mapPosition} zoom={13} ref={mapRef} style={{ height: '100%', width: '100%' }}>
+              <TileLayer
+                url="https://map.ir/shiveh"
+                wmsHeader={wmsHeaderOptions}
+                layers="Shiveh:Shiveh"
+                format="image/png"
+              />
+              <Marker
+                position={mapPosition}
+                draggable={true}
+                eventHandlers={{
+                  dragend: (e) => handleLocationChange(e.target.getLatLng()),
+                }}
+                ref={markerRef}
+              />
+              <MapEvents onLocationChange={handleLocationChange} />
+            </MapContainer>
+            <Button type="button" size="icon" className="absolute top-3 right-3 z-[1000] bg-white text-brand-charcoal hover:bg-neutral-light-gray shadow-md" onClick={handleLocateMe}>
               <LocateFixed className="h-5 w-5" />
             </Button>
           </div>
