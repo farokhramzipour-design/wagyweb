@@ -39,44 +39,53 @@ const BecomeSitter = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        setLoading(true);
-        const { data } = await SitterService.getSitterProfile();
-        setSitterProfile(data);
-      } catch (err) {
-        console.log("No existing sitter profile found. Starting fresh.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProfile();
-  }, []);
-
   const allSteps = useMemo(() => [
-    { id: 1, component: PersonalInfoForm },
-    { id: 2, component: LocationForm },
-    { id: 3, component: ServicesForm },
-    { id: 4, component: ExperienceForm },
-    { id: 5, component: HomeForm, condition: (profile) => profile?.services?.boarding?.active },
-    { id: 6, component: ContentForm },
-    { id: 7, component: PricingForm },
+    { id: 1, component: PersonalInfoForm, name: "Personal Info" },
+    { id: 2, component: LocationForm, name: "Location" },
+    { id: 3, component: ServicesForm, name: "Services" },
+    { id: 4, component: ExperienceForm, name: "Experience" },
+    { id: 5, component: HomeForm, condition: (profile) => profile?.services?.boarding?.active, name: "Home" },
+    { id: 6, component: ContentForm, name: "Content" },
+    { id: 7, component: PricingForm, name: "Pricing" },
   ], []);
 
   const activeSteps = useMemo(() => {
     return allSteps.filter(step => !step.condition || step.condition(sitterProfile));
   }, [allSteps, sitterProfile]);
 
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        const { data } = await SitterService.getSitterProfile();
+        setSitterProfile(data);
+        // Start user at the next step they need to complete
+        const nextStep = data.onboarding_step > 0 ? data.onboarding_step + 1 : 1;
+        // Ensure the next step is valid within the active steps
+        const isValidStep = activeSteps.some(step => step.id === nextStep);
+        setCurrentStep(isValidStep ? nextStep : activeSteps[activeSteps.length - 1].id);
+
+      } catch (err) {
+        console.log("No existing sitter profile found. Starting fresh.");
+        setCurrentStep(1);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, [activeSteps]); // Rerun if activeSteps changes
+
   const CurrentComponent = activeSteps.find(step => step.id === currentStep)?.component;
-  const isLastStep = currentStep === activeSteps[activeSteps.length - 1].id;
+  const isLastStep = currentStep === activeSteps[activeSteps.length - 1]?.id;
 
   const handleNextStep = () => {
     if (isLastStep) {
       handleFinalSubmit();
     } else {
       const currentIndex = activeSteps.findIndex(step => step.id === currentStep);
-      setCurrentStep(activeSteps[currentIndex + 1].id);
+      if (currentIndex < activeSteps.length - 1) {
+        setCurrentStep(activeSteps[currentIndex + 1].id);
+      }
     }
   };
 
@@ -98,13 +107,13 @@ const BecomeSitter = () => {
       setIsSubmitted(true);
     } catch (error) {
       console.error("Submission failed:", error);
-      // You might want to show a toast message here
     }
   };
   
-  const progress = Math.round(((activeSteps.findIndex(step => step.id === currentStep) + 1) / activeSteps.length) * 100);
+  const currentStepIndex = activeSteps.findIndex(step => step.id === currentStep);
+  const progress = Math.round(((currentStepIndex + 1) / activeSteps.length) * 100);
 
-  if (loading) {
+  if (loading || !CurrentComponent) {
     return (
       <div className="flex justify-center items-center h-screen bg-neutral-light-gray">
         <p className="text-brand-charcoal">Loading your profile...</p>
@@ -132,13 +141,11 @@ const BecomeSitter = () => {
         
         <main>
           <Suspense fallback={<StepLoading />}>
-            {CurrentComponent && (
-              <CurrentComponent
-                profileData={sitterProfile}
-                onSave={handleSave}
-                onBack={handlePrevStep}
-              />
-            )}
+            <CurrentComponent
+              profileData={sitterProfile}
+              onSave={handleSave}
+              onBack={handlePrevStep}
+            />
           </Suspense>
         </main>
       </div>
