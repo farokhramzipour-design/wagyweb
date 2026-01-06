@@ -10,6 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { useToast } from '@/hooks/use-toast';
 import { LocateFixed } from 'lucide-react';
 import { debounce } from 'lodash';
+import useMapir from '@/hooks/use-mapir';
 
 const locationSchema = z.object({
   country: z.string().min(2, "Country is required."),
@@ -25,7 +26,7 @@ const Field = ({ name, label, register, error, ...props }) => (
     <div className="space-y-2">
         <Label htmlFor={name}>{label}</Label>
         <Input id={name} {...register(name)} {...props} />
-        {error && <p className="text-sm text-red-600">{error.message}</p>}
+        {error && <p className="text-sm text-red-600 mt-1">{error.message}</p>}
     </div>
 );
 
@@ -39,7 +40,7 @@ const Checkbox = ({ name, value, label, register }) => (
 const LocationForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isMapScriptLoaded, setIsMapScriptLoaded] = useState(false);
+  const [isMapLoaded, mapError] = useMapir();
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -51,17 +52,6 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
       service_radius_km: 10, available_days: [], available_time_slots: [],
     }
   });
-
-  useEffect(() => {
-    const checkMapir = () => {
-      if (window.mapir) {
-        setIsMapScriptLoaded(true);
-      } else {
-        setTimeout(checkMapir, 100);
-      }
-    };
-    checkMapir();
-  }, []);
 
   const reverseGeocode = useCallback(debounce(async (lat, lng) => {
     try {
@@ -78,49 +68,49 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
   }, 500), [setValue, addToast]);
 
   useEffect(() => {
-    if (!isMapScriptLoaded || !mapRef.current) return;
+    if (isMapLoaded && mapRef.current) {
+      const initialLat = profileData?.latitude || 35.715298;
+      const initialLng = profileData?.longitude || 51.404343;
 
-    const initialLat = profileData?.latitude || 35.715298;
-    const initialLng = profileData?.longitude || 51.404343;
-
-    const map = new window.mapir.Map({
-        container: mapRef.current,
-        center: [initialLng, initialLat],
-        zoom: 13,
-        apiKey: process.env.VITE_MAP_IR_API_KEY,
-    });
-    mapInstanceRef.current = map;
-
-    const marker = new window.mapir.Marker({
-        map: map,
-        position: [initialLng, initialLat],
-        draggable: true,
-    });
-    markerRef.current = marker;
-
-    marker.on('dragend', () => {
-        const { lng, lat } = marker.getPosition();
-        setValue('longitude', lng);
-        setValue('latitude', lat);
-        reverseGeocode(lat, lng);
-    });
-    
-    if (profileData) {
-      reset({
-        country: profileData.country || '',
-        city: profileData.city || '',
-        latitude: initialLat,
-        longitude: initialLng,
-        service_radius_km: profileData.service_radius_km || 10,
-        available_days: profileData.available_days || [],
-        available_time_slots: profileData.available_time_slots ? Object.keys(profileData.available_time_slots) : [],
+      const map = new window.mapir.Map({
+          container: mapRef.current,
+          center: [initialLng, initialLat],
+          zoom: 13,
+          apiKey: process.env.VITE_MAP_IR_API_KEY,
       });
-    }
+      mapInstanceRef.current = map;
 
-    return () => {
-      if (map) map.remove();
-    };
-  }, [isMapScriptLoaded, profileData, reset, reverseGeocode, setValue]);
+      const marker = new window.mapir.Marker({
+          map: map,
+          position: [initialLng, initialLat],
+          draggable: true,
+      });
+      markerRef.current = marker;
+
+      marker.on('dragend', () => {
+          const { lng, lat } = marker.getPosition();
+          setValue('longitude', lng);
+          setValue('latitude', lat);
+          reverseGeocode(lat, lng);
+      });
+      
+      if (profileData) {
+        reset({
+          country: profileData.country || '',
+          city: profileData.city || '',
+          latitude: initialLat,
+          longitude: initialLng,
+          service_radius_km: profileData.service_radius_km || 10,
+          available_days: profileData.available_days || [],
+          available_time_slots: profileData.available_time_slots ? Object.keys(profileData.available_time_slots) : [],
+        });
+      }
+
+      return () => {
+        if (map) map.remove();
+      };
+    }
+  }, [isMapLoaded, profileData, reset, reverseGeocode, setValue]);
 
   const handleLocateMe = () => {
     navigator.geolocation.getCurrentPosition((position) => {
@@ -165,12 +155,12 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="relative h-64 w-full rounded-lg overflow-hidden">
-            {isMapScriptLoaded ? (
+            {isMapLoaded ? (
               <div ref={mapRef} style={{ height: '100%', width: '100%' }}></div>
             ) : (
-              <div className="flex items-center justify-center h-full">Loading Map...</div>
+              <div className="flex items-center justify-center h-full">{mapError ? 'Error loading map.' : 'Loading Map...'}</div>
             )}
-            <Button type="button" size="icon" className="absolute top-3 right-3 z-10 bg-white text-brand-charcoal hover:bg-neutral-light-gray shadow-md" onClick={handleLocateMe} disabled={!isMapScriptLoaded}>
+            <Button type="button" size="icon" className="absolute top-3 right-3 z-10 bg-white text-brand-charcoal hover:bg-neutral-light-gray shadow-md" onClick={handleLocateMe} disabled={!isMapLoaded}>
               <LocateFixed className="h-5 w-5" />
             </Button>
           </div>
