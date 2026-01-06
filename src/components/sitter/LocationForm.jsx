@@ -39,10 +39,10 @@ const Checkbox = ({ name, value, label, register }) => (
 const LocationForm = ({ profileData, onSave, onBack }) => {
   const { addToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMapReady, setIsMapReady] = useState(false);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const mapInstanceRef = useRef(null);
-  const [isMapReady, setIsMapReady] = useState(false);
 
   const { register, handleSubmit, watch, formState: { errors }, setValue, reset } = useForm({
     resolver: zodResolver(locationSchema),
@@ -51,6 +51,32 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
       service_radius_km: 10, available_days: [], available_time_slots: [],
     }
   });
+
+  useEffect(() => {
+    const loadScript = (src, onLoad) => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.onload = onLoad;
+      document.body.appendChild(script);
+    };
+
+    const loadCss = (href) => {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = href;
+      document.head.appendChild(link);
+    };
+
+    loadCss("https://cdn.map.ir/web-sdk/1.4.2/css/mapp.min.css");
+
+    loadScript("https://code.jquery.com/jquery-3.6.0.min.js", () => {
+      loadScript("https://cdn.map.ir/web-sdk/1.4.2/js/mapp.env.js", () => {
+        loadScript("https://cdn.map.ir/web-sdk/1.4.2/js/mapp.min.js", () => {
+          setIsMapReady(true);
+        });
+      });
+    });
+  }, []);
 
   const reverseGeocode = useCallback(debounce(async (lat, lng) => {
     try {
@@ -67,8 +93,7 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
   }, 500), [setValue, addToast]);
 
   useEffect(() => {
-    if (window.mapir && mapRef.current) {
-      setIsMapReady(true);
+    if (isMapReady && mapRef.current) {
       const initialLat = profileData?.latitude || 35.715298;
       const initialLng = profileData?.longitude || 51.404343;
 
@@ -76,7 +101,6 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
           container: mapRef.current,
           center: [initialLng, initialLat],
           zoom: 13,
-          apiKey: process.env.VITE_MAP_IR_API_KEY,
       });
       mapInstanceRef.current = map;
 
@@ -110,7 +134,7 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
         if (map) map.remove();
       };
     }
-  }, [profileData, reset, reverseGeocode, setValue]);
+  }, [isMapReady, profileData, reset, reverseGeocode, setValue]);
 
   const handleLocateMe = () => {
     navigator.geolocation.getCurrentPosition((position) => {
