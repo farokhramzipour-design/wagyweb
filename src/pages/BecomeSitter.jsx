@@ -53,13 +53,17 @@ const BecomeSitter = () => {
     return allSteps.filter(step => !step.condition || step.condition(sitterProfile));
   }, [allSteps, sitterProfile]);
 
+  // Effect to fetch initial profile and set starting step
   useEffect(() => {
     const fetchProfile = async () => {
       try {
+        setLoading(true);
         const { data } = await SitterService.getSitterProfile();
         setSitterProfile(data);
+        setCurrentStep(data.onboarding_step || 1);
       } catch (err) {
         console.log("No existing sitter profile found. Starting fresh.");
+        setCurrentStep(1);
       } finally {
         setLoading(false);
       }
@@ -67,24 +71,22 @@ const BecomeSitter = () => {
     fetchProfile();
   }, []);
 
-  useEffect(() => {
-    if (sitterProfile) {
-      const startingStep = sitterProfile.onboarding_step || 1;
-      const isValidStep = activeSteps.some(step => step.id === startingStep);
-      setCurrentStep(isValidStep ? startingStep : 1);
-    }
-  }, [sitterProfile, activeSteps]);
-
-  const CurrentComponent = activeSteps.find(step => step.id === currentStep)?.component;
-  const isLastStep = currentStep === activeSteps[activeSteps.length - 1]?.id;
-
-  const handleNextStep = () => {
-    if (isLastStep) {
-      handleFinalSubmit();
+  const handleSave = (updatedProfile) => {
+    setSitterProfile(updatedProfile);
+    const nextStep = updatedProfile.onboarding_step || currentStep;
+    
+    // If the API returns a step that is valid, go to it.
+    // Otherwise, just increment from the current step.
+    const isValidApiStep = activeSteps.some(step => step.id === nextStep);
+    if (isValidApiStep && nextStep > currentStep) {
+      setCurrentStep(nextStep);
     } else {
+      // Fallback to simple increment if API step is not logical
       const currentIndex = activeSteps.findIndex(step => step.id === currentStep);
       if (currentIndex < activeSteps.length - 1) {
         setCurrentStep(activeSteps[currentIndex + 1].id);
+      } else {
+        handleFinalSubmit();
       }
     }
   };
@@ -96,11 +98,6 @@ const BecomeSitter = () => {
     }
   };
 
-  const handleSave = (stepData) => {
-    setSitterProfile(prev => ({ ...prev, ...stepData }));
-    handleNextStep();
-  };
-
   const handleFinalSubmit = async () => {
     try {
       await SitterService.submitForReview();
@@ -109,7 +106,8 @@ const BecomeSitter = () => {
       console.error("Submission failed:", error);
     }
   };
-  
+
+  const CurrentComponent = activeSteps.find(step => step.id === currentStep)?.component;
   const currentStepIndex = activeSteps.findIndex(step => step.id === currentStep);
   const progress = Math.round(((currentStepIndex + 1) / activeSteps.length) * 100);
 
