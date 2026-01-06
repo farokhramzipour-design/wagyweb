@@ -94,6 +94,14 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
       const marker = new window.L.Marker([initialLat, initialLng], { draggable: true }).addTo(map);
       markerRef.current = marker;
 
+      map.on('click', (e) => {
+        const { lat, lng } = e.latlng;
+        marker.setLatLng([lat, lng]);
+        setValue('latitude', lat);
+        setValue('longitude', lng);
+        reverseGeocode(lat, lng);
+      });
+
       marker.on('dragend', (e) => {
         const { lat, lng } = e.target.getLatLng();
         setValue('latitude', lat);
