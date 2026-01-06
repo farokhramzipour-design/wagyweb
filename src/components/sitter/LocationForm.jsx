@@ -65,7 +65,7 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
   const reverseGeocode = useCallback(debounce(async (lat, lng) => {
     try {
       const response = await fetch(`https://api.neshan.org/v5/reverse?lat=${lat}&lng=${lng}`, {
-        headers: { 'Api-Key': process.env.VITE_NESHAN_API_KEY }
+        headers: { 'Api-Key': process.env.VITE_NESHAN_API_KEY_SERVICE }
       });
       if (!response.ok) throw new Error('Unable to geocode');
       const data = await response.json();
@@ -82,7 +82,7 @@ const LocationForm = ({ profileData, onSave, onBack }) => {
       const initialLng = profileData?.longitude || 51.404343;
 
       const map = new window.L.Map(mapContainerRef.current, {
-        key: process.env.VITE_NESHAN_API_KEY,
+        key: process.env.VITE_NESHAN_API_KEY_WEB,
         maptype: 'neshan',
         poi: false,
         traffic: false,
