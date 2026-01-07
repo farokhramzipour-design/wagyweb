@@ -20,9 +20,6 @@ export const uploadProfilePhoto = async (file) => {
   const response = await api.post('/sitters/upload-profile-photo', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
-  if (response.data && response.data.url && response.data.url.startsWith('http://')) {
-    response.data.url = response.data.url.replace('http://', 'https://');
-  }
   return response;
 };
 
@@ -34,11 +31,6 @@ export const uploadGalleryPhotos = async (files) => {
   const response = await api.post('/sitters/upload-gallery-photos', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
-  if (response.data && Array.isArray(response.data.urls)) {
-    response.data.urls = response.data.urls.map(url => 
-      url.startsWith('http://') ? url.replace('http://', 'https://') : url
-    );
-  }
   return response;
 };
 
@@ -52,14 +44,12 @@ export const uploadIdDocument = async (file) => {
     const response = await api.post('/sitters/upload-id-document', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     });
-    if (response.data && response.data.url && response.data.url.startsWith('http://')) {
-        response.data.url = response.data.url.replace('http://', 'https://');
-    }
     return response;
 };
 
 export const updatePersonalInfo = (data) => api.patch('/sitters/personal-info', data);
 export const updateLocation = (data) => api.patch('/sitters/location', data);
+export const updateServiceSelection = (data) => api.patch('/sitters/services/selection', data);
 export const updateBoardingService = (data) => api.patch('/sitters/services/boarding', data);
 export const updateWalkingService = (data) => api.patch('/sitters/services/walking', data);
 export const updateHouseSittingService = (data) => api.patch('/sitters/services/house-sitting', data);

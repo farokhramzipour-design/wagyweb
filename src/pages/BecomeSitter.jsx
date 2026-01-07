@@ -8,6 +8,11 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 const PersonalInfoForm = lazy(() => import('@/components/sitter/PersonalInfoForm'));
 const LocationForm = lazy(() => import('@/components/sitter/LocationForm'));
 const ServicesForm = lazy(() => import('@/components/sitter/ServicesForm'));
+const BoardingForm = lazy(() => import('@/components/sitter/services/BoardingForm'));
+const WalkingForm = lazy(() => import('@/components/sitter/services/WalkingForm'));
+const HouseSittingForm = lazy(() => import('@/components/sitter/services/HouseSittingForm'));
+const DropInForm = lazy(() => import('@/components/sitter/services/DropInForm'));
+const DayCareForm = lazy(() => import('@/components/sitter/services/DayCareForm'));
 const ExperienceForm = lazy(() => import('@/components/sitter/ExperienceForm'));
 const HomeForm = lazy(() => import('@/components/sitter/HomeForm'));
 const ContentForm = lazy(() => import('@/components/sitter/ContentForm'));
@@ -39,22 +44,39 @@ const BecomeSitter = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const allSteps = useMemo(() => [
-    { id: 1, component: PersonalInfoForm, name: "Personal Info" },
-    { id: 2, component: LocationForm, name: "Location" },
-    { id: 3, component: ServicesForm, name: "Services" },
-    { id: 4, component: ExperienceForm, name: "Experience" },
-    { id: 5, component: HomeForm, condition: (profile) => profile?.is_boarding_supported, name: "Home" },
-    { id: 6, component: ContentForm, name: "Content" },
-    { id: 7, component: PricingForm, name: "Pricing" },
-  ], []);
+  const allSteps = useMemo(() => {
+    const steps = [
+      { id: 1, component: PersonalInfoForm, name: "Personal Info" },
+      { id: 2, component: LocationForm, name: "Location" },
+      { id: 3, component: ServicesForm, name: "Services" },
+    ];
 
-  const activeSteps = useMemo(() => {
-    if (!sitterProfile) return allSteps.filter(step => step.id === 1);
-    return allSteps.filter(step => !step.condition || step.condition(sitterProfile));
-  }, [allSteps, sitterProfile]);
+    if (sitterProfile?.is_boarding_supported) {
+      steps.push({ id: 4, component: BoardingForm, name: "Boarding" });
+    }
+    if (sitterProfile?.is_dog_walking_supported) {
+      steps.push({ id: 5, component: WalkingForm, name: "Dog Walking" });
+    }
+    if (sitterProfile?.is_house_sitting_supported) {
+      steps.push({ id: 6, component: HouseSittingForm, name: "House Sitting" });
+    }
+    if (sitterProfile?.is_drop_in_supported) {
+      steps.push({ id: 7, component: DropInForm, name: "Drop-In Visits" });
+    }
+    if (sitterProfile?.is_day_care_supported) {
+      steps.push({ id: 8, component: DayCareForm, name: "Day Care" });
+    }
 
-  // Effect to fetch initial profile
+    steps.push(
+      { id: 9, component: ExperienceForm, name: "Experience" },
+      { id: 10, component: HomeForm, condition: (profile) => profile?.is_boarding_supported || profile?.is_day_care_supported, name: "Home" },
+      { id: 11, component: ContentForm, name: "Content" },
+      { id: 12, component: PricingForm, name: "Pricing" }
+    );
+
+    return steps;
+  }, [sitterProfile]);
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -70,7 +92,6 @@ const BecomeSitter = () => {
     fetchProfile();
   }, []);
 
-  // Effect to set the current step based on the loaded profile
   useEffect(() => {
     if (sitterProfile) {
       const lastStepId = allSteps[allSteps.length - 1].id;
@@ -81,28 +102,25 @@ const BecomeSitter = () => {
         return;
       }
       
-      const isValidStep = activeSteps.some(step => step.id === startingStep);
+      const isValidStep = allSteps.some(step => step.id === startingStep);
       setCurrentStep(isValidStep ? startingStep : 1);
     }
-  }, [sitterProfile, activeSteps, allSteps]);
+  }, [sitterProfile, allSteps]);
 
   const handleSave = (updatedProfile) => {
     setSitterProfile(updatedProfile);
-    // The useEffect above will now handle setting the correct next step
   };
 
   const handlePrevStep = () => {
-    const currentIndex = activeSteps.findIndex(step => step.id === currentStep);
+    const currentIndex = allSteps.findIndex(step => step.id === currentStep);
     if (currentIndex > 0) {
-      const prevStepId = activeSteps[currentIndex - 1].id;
-      // This is a simple step-back, doesn't need API call
-      setCurrentStep(prevStepId);
+      setCurrentStep(allSteps[currentIndex - 1].id);
     }
   };
 
-  const CurrentComponent = activeSteps.find(step => step.id === currentStep)?.component;
-  const currentStepIndex = activeSteps.findIndex(step => step.id === currentStep);
-  const progress = Math.round(((currentStepIndex + 1) / activeSteps.length) * 100);
+  const CurrentComponent = allSteps.find(step => step.id === currentStep)?.component;
+  const currentStepIndex = allSteps.findIndex(step => step.id === currentStep);
+  const progress = Math.round(((currentStepIndex + 1) / allSteps.length) * 100);
 
   if (loading) {
     return (
