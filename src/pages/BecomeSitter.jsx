@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
-import { useLocation } from 'react-router-dom';
 import * as SitterService from '@/services/sitterService';
 import { Progress } from '@/components/ui/Progress';
 import { Button } from '@/components/ui/Button';
@@ -45,9 +44,9 @@ const BecomeSitter = () => {
   const [sitterProfile, setSitterProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentStepName, setCurrentStepName] = useState(null);
-  const location = useLocation();
 
-  // Effect to fetch initial profile and set the starting step
+  // Effect to fetch initial profile and set the starting step.
+  // Runs ONCE when the component mounts.
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -63,7 +62,7 @@ const BecomeSitter = () => {
       }
     };
     fetchProfile();
-  }, [location.key]); // Re-fetch when the route location changes
+  }, []); // Empty dependency array ensures this runs only on mount
 
   const handleSave = (updatedProfile) => {
     setSitterProfile(updatedProfile);
