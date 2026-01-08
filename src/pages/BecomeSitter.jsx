@@ -41,40 +41,40 @@ const ReviewScreen = () => (
 const BecomeSitter = () => {
   const [sitterProfile, setSitterProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStepId, setCurrentStepId] = useState(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const allSteps = useMemo(() => {
-    const steps = [
+    const baseSteps = [
       { id: 1, component: PersonalInfoForm, name: "Personal Info" },
       { id: 2, component: LocationForm, name: "Location" },
       { id: 3, component: ServicesForm, name: "Services" },
     ];
 
-    if (sitterProfile?.is_boarding_supported) {
-      steps.push({ id: 4, component: BoardingForm, name: "Boarding" });
-    }
-    if (sitterProfile?.is_dog_walking_supported) {
-      steps.push({ id: 5, component: WalkingForm, name: "Dog Walking" });
-    }
-    if (sitterProfile?.is_house_sitting_supported) {
-      steps.push({ id: 6, component: HouseSittingForm, name: "House Sitting" });
-    }
-    if (sitterProfile?.is_drop_in_supported) {
-      steps.push({ id: 7, component: DropInForm, name: "Drop-In Visits" });
-    }
-    if (sitterProfile?.is_day_care_supported) {
-      steps.push({ id: 8, component: DayCareForm, name: "Day Care" });
-    }
+    const serviceSteps = [
+      { id: 4, component: BoardingForm, name: "Boarding", condition: (p) => p?.is_boarding_supported },
+      { id: 5, component: WalkingForm, name: "Dog Walking", condition: (p) => p?.is_dog_walking_supported },
+      { id: 6, component: HouseSittingForm, name: "House Sitting", condition: (p) => p?.is_house_sitting_supported },
+      { id: 7, component: DropInForm, name: "Drop-In Visits", condition: (p) => p?.is_drop_in_supported },
+      { id: 8, component: DayCareForm, name: "Day Care", condition: (p) => p?.is_day_care_supported },
+    ];
 
-    steps.push(
+    const finalSteps = [
       { id: 9, component: ExperienceForm, name: "Experience" },
-      { id: 10, component: HomeForm, condition: (profile) => profile?.is_boarding_supported || profile?.is_day_care_supported, name: "Home" },
+      { id: 10, component: HomeForm, name: "Home", condition: (p) => p?.is_boarding_supported || p?.is_day_care_supported },
       { id: 11, component: ContentForm, name: "Content" },
-      { id: 12, component: PricingForm, name: "Pricing" }
-    );
+      { id: 12, component: PricingForm, name: "Pricing" },
+    ];
 
-    return steps;
+    let dynamicSteps = [...baseSteps];
+    if (sitterProfile) {
+      dynamicSteps.push(...serviceSteps.filter(s => s.condition(sitterProfile)));
+    }
+    dynamicSteps.push(...finalSteps);
+    
+    // Re-assign sequential IDs
+    return dynamicSteps.map((step, index) => ({ ...step, id: index + 1 }));
+
   }, [sitterProfile]);
 
   useEffect(() => {
@@ -94,16 +94,16 @@ const BecomeSitter = () => {
 
   useEffect(() => {
     if (sitterProfile) {
-      const lastStepId = allSteps[allSteps.length - 1].id;
-      const startingStep = sitterProfile.onboarding_step || 1;
+      const lastCompletedStep = sitterProfile.onboarding_step || 0;
+      const lastStepId = allSteps[allSteps.length - 1]?.id;
 
-      if (startingStep > lastStepId) {
+      if (lastCompletedStep >= lastStepId) {
         setIsSubmitted(true);
         return;
       }
       
-      const isValidStep = allSteps.some(step => step.id === startingStep);
-      setCurrentStep(isValidStep ? startingStep : 1);
+      const nextStepId = lastCompletedStep + 1;
+      setCurrentStepId(nextStepId);
     }
   }, [sitterProfile, allSteps]);
 
@@ -112,38 +112,24 @@ const BecomeSitter = () => {
   };
 
   const handlePrevStep = () => {
-    const currentIndex = allSteps.findIndex(step => step.id === currentStep);
+    const currentIndex = allSteps.findIndex(step => step.id === currentStepId);
     if (currentIndex > 0) {
-      setCurrentStep(allSteps[currentIndex - 1].id);
+      setCurrentStepId(allSteps[currentIndex - 1].id);
     }
   };
 
-  const CurrentComponent = allSteps.find(step => step.id === currentStep)?.component;
-  const currentStepIndex = allSteps.findIndex(step => step.id === currentStep);
+  const CurrentComponent = allSteps.find(step => step.id === currentStepId)?.component;
+  const currentStepIndex = allSteps.findIndex(step => step.id === currentStepId);
   const progress = Math.round(((currentStepIndex + 1) / allSteps.length) * 100);
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen bg-neutral-light-gray">
-        <p className="text-brand-charcoal">Loading your profile...</p>
-      </div>
-    );
+    return <div className="flex justify-center items-center h-screen bg-neutral-light-gray"><p>Loading your profile...</p></div>;
   }
-
   if (isSubmitted) {
-    return (
-      <div className="bg-neutral-light-gray min-h-screen py-20 flex items-center justify-center">
-        <ReviewScreen />
-      </div>
-    );
+    return <div className="bg-neutral-light-gray min-h-screen py-20 flex items-center justify-center"><ReviewScreen /></div>;
   }
-  
   if (!CurrentComponent) {
-     return (
-      <div className="flex justify-center items-center h-screen bg-neutral-light-gray">
-        <p className="text-brand-charcoal">Determining your next step...</p>
-      </div>
-    );
+    return <div className="flex justify-center items-center h-screen bg-neutral-light-gray"><p>Determining your next step...</p></div>;
   }
 
   return (
@@ -153,16 +139,10 @@ const BecomeSitter = () => {
           <h1 className="text-4xl font-bold text-brand-charcoal">Become a Wagy Sitter</h1>
           <p className="text-lg text-gray-600 mt-2">Join our community of trusted pet lovers. Let's get your profile set up.</p>
         </header>
-
         <Progress value={progress} className="mb-8" />
-        
         <main>
           <Suspense fallback={<StepLoading />}>
-            <CurrentComponent
-              profileData={sitterProfile}
-              onSave={handleSave}
-              onBack={handlePrevStep}
-            />
+            <CurrentComponent profileData={sitterProfile} onSave={handleSave} onBack={handlePrevStep} />
           </Suspense>
         </main>
       </div>
