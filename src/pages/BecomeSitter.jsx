@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import { useLocation } from 'react-router-dom'; // Import useLocation
 import * as SitterService from '@/services/sitterService';
 import { Progress } from '@/components/ui/Progress';
 import { Button } from '@/components/ui/Button';
@@ -44,9 +45,9 @@ const BecomeSitter = () => {
   const [sitterProfile, setSitterProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentStepName, setCurrentStepName] = useState(null);
+  const location = useLocation(); // Get the location object
 
-  // Effect to fetch initial profile and set the starting step.
-  // Runs ONCE when the component mounts.
+  // Effect to fetch profile data whenever the user navigates to this page
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -56,13 +57,13 @@ const BecomeSitter = () => {
         setCurrentStepName(data.next_step);
       } catch (err) {
         console.log("No existing sitter profile found. Starting fresh.");
-        setCurrentStepName("PersonalInfoForm"); // Default to the first step
+        setCurrentStepName("PersonalInfoForm");
       } finally {
         setLoading(false);
       }
     };
     fetchProfile();
-  }, []); // Empty dependency array ensures this runs only on mount
+  }, [location.key]); // Use location.key to re-trigger on navigation
 
   const handleSave = (updatedProfile) => {
     setSitterProfile(updatedProfile);
@@ -96,7 +97,6 @@ const BecomeSitter = () => {
             <CurrentComponent
               profileData={sitterProfile}
               onSave={handleSave}
-              // onBack is removed as the flow is now strictly forward
             />
           </Suspense>
         </main>
