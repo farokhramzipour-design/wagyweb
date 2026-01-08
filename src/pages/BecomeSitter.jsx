@@ -44,7 +44,7 @@ const BecomeSitter = () => {
   const [currentStepId, setCurrentStepId] = useState(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const allSteps = useMemo(() => {
+  const activeSteps = useMemo(() => {
     const baseSteps = [
       { id: 1, component: PersonalInfoForm, name: "Personal Info" },
       { id: 2, component: LocationForm, name: "Location" },
@@ -53,9 +53,9 @@ const BecomeSitter = () => {
 
     const serviceSteps = [
       { id: 4, component: BoardingForm, name: "Boarding", condition: (p) => p?.is_boarding_supported },
-      { id: 5, component: WalkingForm, name: "Dog Walking", condition: (p) => p?.is_dog_walking_supported },
-      { id: 6, component: HouseSittingForm, name: "House Sitting", condition: (p) => p?.is_house_sitting_supported },
-      { id: 7, component: DropInForm, name: "Drop-In Visits", condition: (p) => p?.is_drop_in_supported },
+      { id: 5, component: HouseSittingForm, name: "House Sitting", condition: (p) => p?.is_house_sitting_supported },
+      { id: 6, component: DropInForm, name: "Drop-In Visits", condition: (p) => p?.is_drop_in_supported },
+      { id: 7, component: WalkingForm, name: "Dog Walking", condition: (p) => p?.is_dog_walking_supported },
       { id: 8, component: DayCareForm, name: "Day Care", condition: (p) => p?.is_day_care_supported },
     ];
 
@@ -69,22 +69,20 @@ const BecomeSitter = () => {
     let dynamicSteps = [...baseSteps];
     if (sitterProfile) {
         const activeServiceSteps = serviceSteps.filter(s => s.condition(sitterProfile));
-        dynamicSteps = [...dynamicSteps, ...activeServiceSteps];
+        dynamicSteps.push(...activeServiceSteps);
     }
-    dynamicSteps.push(...finalSteps);
+    dynamicSteps.push(...finalSteps.filter(step => !step.condition || step.condition(sitterProfile)));
     
-    // Re-assign sequential IDs to ensure navigation works correctly
-    return dynamicSteps.map((step, index) => ({ ...step, originalId: step.id, id: index + 1 }));
-
+    return dynamicSteps.map((step, index) => ({ ...step, id: index + 1 }));
   }, [sitterProfile]);
 
-  // Effect to fetch initial profile
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         setLoading(true);
         const { data } = await SitterService.getSitterProfile();
         setSitterProfile(data);
+        // Initial step is set in the next useEffect
       } catch (err) {
         console.log("No existing sitter profile found. Starting fresh.");
       } finally {
@@ -94,36 +92,59 @@ const BecomeSitter = () => {
     fetchProfile();
   }, []);
 
-  // Effect to set the current step based on the loaded profile
   useEffect(() => {
-    if (sitterProfile && allSteps.length > 1) {
-      const startingStep = sitterProfile.onboarding_step || 1;
-      const lastStepId = allSteps[allSteps.length - 1].id;
+    if (sitterProfile) {
+      const lastCompletedStep = sitterProfile.onboarding_step || 0;
+      const lastPossibleStepId = allSteps[allSteps.length - 1]?.id;
 
-      if (startingStep > lastStepId) {
+      if (lastCompletedStep >= lastPossibleStepId) {
         setIsSubmitted(true);
         return;
       }
       
-      const stepToLoad = allSteps.find(s => s.originalId === startingStep)?.id || 1;
-      setCurrentStepId(stepToLoad);
+      // The API's onboarding_step corresponds to the original ID, not the dynamic one
+      const nextOriginalId = lastCompletedStep + 1;
+      const nextStep = activeSteps.find(s => s.originalId === nextOriginalId);
+      
+      setCurrentStepId(nextStep ? nextStep.id : 1);
     }
-  }, [sitterProfile, allSteps]);
+  }, [sitterProfile, allSteps, activeSteps]);
+
+  const handleNextStep = () => {
+    const currentIndex = activeSteps.findIndex(step => step.id === currentStepId);
+    const isLastStep = currentIndex === activeSteps.length - 1;
+
+    if (isLastStep) {
+      handleFinalSubmit();
+    } else {
+      setCurrentStepId(activeSteps[currentIndex + 1].id);
+    }
+  };
 
   const handleSave = (updatedProfile) => {
     setSitterProfile(updatedProfile);
+    handleNextStep();
   };
 
   const handlePrevStep = () => {
-    const currentIndex = allSteps.findIndex(step => step.id === currentStepId);
+    const currentIndex = activeSteps.findIndex(step => step.id === currentStepId);
     if (currentIndex > 0) {
-      setCurrentStepId(allSteps[currentIndex - 1].id);
+      setCurrentStepId(activeSteps[currentIndex - 1].id);
     }
   };
 
-  const CurrentComponent = allSteps.find(step => step.id === currentStepId)?.component;
-  const currentStepIndex = allSteps.findIndex(step => step.id === currentStepId);
-  const progress = Math.round(((currentStepIndex + 1) / allSteps.length) * 100);
+  const handleFinalSubmit = async () => {
+    try {
+      await SitterService.submitForReview();
+      setIsSubmitted(true);
+    } catch (error) {
+      console.error("Submission failed:", error);
+    }
+  };
+
+  const CurrentComponent = activeSteps.find(step => step.id === currentStepId)?.component;
+  const currentStepIndex = activeSteps.findIndex(step => step.id === currentStepId);
+  const progress = Math.round(((currentStepIndex + 1) / activeSteps.length) * 100);
 
   if (loading) {
     return <div className="flex justify-center items-center h-screen bg-neutral-light-gray"><p>Loading your profile...</p></div>;
