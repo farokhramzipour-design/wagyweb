@@ -73,16 +73,14 @@ const BecomeSitter = () => {
     }
     dynamicSteps.push(...finalSteps.filter(step => !step.condition || step.condition(sitterProfile)));
     
-    return dynamicSteps.map((step, index) => ({ ...step, id: index + 1 }));
+    return dynamicSteps.map((step, index) => ({ ...step, id: index + 1, originalId: step.id }));
   }, [sitterProfile]);
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        setLoading(true);
         const { data } = await SitterService.getSitterProfile();
         setSitterProfile(data);
-        // Initial step is set in the next useEffect
       } catch (err) {
         console.log("No existing sitter profile found. Starting fresh.");
       } finally {
@@ -93,22 +91,21 @@ const BecomeSitter = () => {
   }, []);
 
   useEffect(() => {
-    if (sitterProfile) {
-      const lastCompletedStep = sitterProfile.onboarding_step || 0;
-      const lastPossibleStepId = allSteps[allSteps.length - 1]?.id;
+    if (!loading && sitterProfile) {
+      const lastCompletedStepOriginalId = sitterProfile.onboarding_step || 0;
+      const lastPossibleStep = activeSteps[activeSteps.length - 1];
 
-      if (lastCompletedStep >= lastPossibleStepId) {
+      if (lastCompletedStepOriginalId >= lastPossibleStep.originalId) {
         setIsSubmitted(true);
         return;
       }
       
-      // The API's onboarding_step corresponds to the original ID, not the dynamic one
-      const nextOriginalId = lastCompletedStep + 1;
-      const nextStep = activeSteps.find(s => s.originalId === nextOriginalId);
-      
+      const nextStep = activeSteps.find(s => s.originalId > lastCompletedStepOriginalId);
       setCurrentStepId(nextStep ? nextStep.id : 1);
+    } else if (!loading) {
+      setCurrentStepId(1);
     }
-  }, [sitterProfile, allSteps, activeSteps]);
+  }, [sitterProfile, activeSteps, loading]);
 
   const handleNextStep = () => {
     const currentIndex = activeSteps.findIndex(step => step.id === currentStepId);
