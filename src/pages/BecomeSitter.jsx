@@ -97,17 +97,16 @@ const BecomeSitter = () => {
   // Effect to set the current step based on the loaded profile
   useEffect(() => {
     if (sitterProfile && allSteps.length > 1) {
-      const lastCompletedStep = sitterProfile.onboarding_step || 0;
+      const startingStep = sitterProfile.onboarding_step || 1;
       const lastStepId = allSteps[allSteps.length - 1].id;
 
-      if (lastCompletedStep >= lastStepId) {
+      if (startingStep > lastStepId) {
         setIsSubmitted(true);
         return;
       }
       
-      // The step to be on is the last completed step
-      const startingStep = allSteps.find(s => s.originalId === lastCompletedStep)?.id + 1 || 1;
-      setCurrentStepId(startingStep);
+      const stepToLoad = allSteps.find(s => s.originalId === startingStep)?.id || 1;
+      setCurrentStepId(stepToLoad);
     }
   }, [sitterProfile, allSteps]);
 
