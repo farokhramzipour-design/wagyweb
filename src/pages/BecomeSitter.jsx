@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import { useLocation } from 'react-router-dom';
 import * as SitterService from '@/services/sitterService';
 import { Progress } from '@/components/ui/Progress';
 import { Button } from '@/components/ui/Button';
@@ -44,6 +45,7 @@ const BecomeSitter = () => {
   const [sitterProfile, setSitterProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentStepName, setCurrentStepName] = useState(null);
+  const location = useLocation();
 
   // Effect to fetch initial profile and set the starting step
   useEffect(() => {
@@ -61,7 +63,7 @@ const BecomeSitter = () => {
       }
     };
     fetchProfile();
-  }, []);
+  }, [location.key]); // Re-fetch when the route location changes
 
   const handleSave = (updatedProfile) => {
     setSitterProfile(updatedProfile);
@@ -89,8 +91,6 @@ const BecomeSitter = () => {
           <h1 className="text-4xl font-bold text-brand-charcoal">Become a Wagy Sitter</h1>
           <p className="text-lg text-gray-600 mt-2">Join our community of trusted pet lovers. Let's get your profile set up.</p>
         </header>
-        
-        {/* The progress bar is removed as the concept of total steps is now fully dynamic */}
         
         <main>
           <Suspense fallback={<StepLoading />}>
