@@ -65,18 +65,20 @@ const BecomeSitter = () => {
       { id: 11, component: ContentForm, name: "Content" },
       { id: 12, component: PricingForm, name: "Pricing" },
     ];
-
+    
     let dynamicSteps = [...baseSteps];
     if (sitterProfile) {
-      dynamicSteps.push(...serviceSteps.filter(s => s.condition(sitterProfile)));
+        const activeServiceSteps = serviceSteps.filter(s => s.condition(sitterProfile));
+        dynamicSteps = [...dynamicSteps, ...activeServiceSteps];
     }
     dynamicSteps.push(...finalSteps);
     
-    // Re-assign sequential IDs
-    return dynamicSteps.map((step, index) => ({ ...step, id: index + 1 }));
+    // Re-assign sequential IDs to ensure navigation works correctly
+    return dynamicSteps.map((step, index) => ({ ...step, originalId: step.id, id: index + 1 }));
 
   }, [sitterProfile]);
 
+  // Effect to fetch initial profile
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -92,18 +94,20 @@ const BecomeSitter = () => {
     fetchProfile();
   }, []);
 
+  // Effect to set the current step based on the loaded profile
   useEffect(() => {
-    if (sitterProfile) {
+    if (sitterProfile && allSteps.length > 1) {
       const lastCompletedStep = sitterProfile.onboarding_step || 0;
-      const lastStepId = allSteps[allSteps.length - 1]?.id;
+      const lastStepId = allSteps[allSteps.length - 1].id;
 
       if (lastCompletedStep >= lastStepId) {
         setIsSubmitted(true);
         return;
       }
       
-      const nextStepId = lastCompletedStep + 1;
-      setCurrentStepId(nextStepId);
+      // The step to be on is the last completed step
+      const startingStep = allSteps.find(s => s.originalId === lastCompletedStep)?.id + 1 || 1;
+      setCurrentStepId(startingStep);
     }
   }, [sitterProfile, allSteps]);
 
